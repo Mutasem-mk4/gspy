@@ -3,7 +3,7 @@
 <div align="center">
   <img src="docs/assets/logo.jpg" alt="gspy logo" width="100%" />
   <br />
-  <p><strong>Forensic goroutine-to-syscall inspector for live Go processes.</strong></p>
+  <p><strong>Advanced eBPF-driven Digital Forensics and Incident Response (DFIR) framework for live Golang malware analysis and threat hunting.</strong></p>
   
   [![License: GPL-2.0-only](https://img.shields.io/badge/License-GPL--2.0--only-blue.svg)](LICENSE)
   [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg?logo=go)](https://go.dev)
@@ -17,7 +17,7 @@
 
 <br>
 
-**gspy** attaches to a live Go process using eBPF uprobes and kernel tracepoints, mapping running goroutines to their real-time syscalls and user-space stack frames. It isolates malicious or anomalous behavior in concurrent Go backdoors and production servers dynamically, silently, and accurately.
+**gspy** is a highly specialized Linux cybersecurity tool that attaches to a live Go process using eBPF uprobes and kernel tracepoints, mapping running goroutines to their real-time syscalls and user-space stack frames. It isolates malicious or anomalous behavior in concurrent Go rootkits, C2 frameworks, and production servers dynamically, silently, and accurately. Designed for Security Operations Centers (SOC), reverse engineers, and malware analysts, gspy provides unprecedented observability into compiled Go binaries.
 
 There are no process restarts (`execve`), no pauses (`ptrace(ATTACH)` overhead), and absolutely zero modifications to the target binary memory.
 
