@@ -11,7 +11,7 @@ import (
 )
 
 func TestGIDOffsetTable(t *testing.T) {
-	// Verify offset lookup returns correct value for Go 1.17 through 1.23.
+	// Verify offset lookup returns correct value for Go 1.17 through 1.24.
 	tests := []struct {
 		goVersion  string
 		wantOffset uint64
