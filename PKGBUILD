@@ -44,8 +44,7 @@ build() {
         gspy ../../bpf/gspy.bpf.c -- \
         -I/usr/include \
         -I../../bpf \
-        -O2 -g \
-        -DBPF_NO_PRESERVE_ACCESS_INDEX
+        -O2 -g
     cd ../..
 
     # Build the Go binary with reproducible flags
