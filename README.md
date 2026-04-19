@@ -1,6 +1,8 @@
 # gspy
 
 <div align="center">
+  <img src="docs/assets/logo.png" alt="gspy logo" width="350" />
+  <br />
   <p><strong>Forensic goroutine-to-syscall inspector for live Go processes.</strong></p>
   
   [![License: GPL-2.0-only](https://img.shields.io/badge/License-GPL--2.0--only-blue.svg)](LICENSE)
