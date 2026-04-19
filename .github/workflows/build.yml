@@ -104,47 +104,83 @@ jobs:
 
       - name: Generate vmlinux.h from kernel BTF
         run: |
-          # Install the runner-specific kernel tools (Azure kernel on GitHub)
           KERNEL=$(uname -r)
           echo "Runner kernel: $KERNEL"
           
-          # Try installing the exact kernel tools package
-          sudo apt-get install -y "linux-tools-${KERNEL}" 2>/dev/null || \
-          sudo apt-get install -y linux-tools-azure 2>/dev/null || \
-          sudo apt-get install -y linux-tools-generic 2>/dev/null || true
+          # Install linux-tools for the azure kernel
+          # GitHub runners use Azure kernels; the matching package may or may not exist
+          sudo apt-get install -y "linux-tools-${KERNEL}" 2>/dev/null || true
           
-          # Find a working bpftool
+          # Find a working bpftool binary (not the wrapper)
           BPFTOOL=""
-          for candidate in \
-            "/usr/lib/linux-tools/${KERNEL}/bpftool" \
-            $(find /usr/lib/linux-tools/ -name bpftool 2>/dev/null | head -1) \
-            "bpftool"; do
-            if [ -n "$candidate" ] && [ -x "$candidate" ] && "$candidate" version &>/dev/null; then
+          for candidate in $(find /usr/lib/linux-tools/ -name bpftool -type f 2>/dev/null); do
+            if [ -x "$candidate" ] && "$candidate" version &>/dev/null; then
               BPFTOOL="$candidate"
+              echo "Found working bpftool: $BPFTOOL"
               break
             fi
           done
           
           if [ -n "$BPFTOOL" ] && [ -f /sys/kernel/btf/vmlinux ]; then
-            echo "Using bpftool at: $BPFTOOL"
             "$BPFTOOL" btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
-            echo "Generated vmlinux.h from running kernel BTF ($(wc -l < bpf/vmlinux.h) lines)"
+            echo "Generated vmlinux.h from kernel BTF ($(wc -l < bpf/vmlinux.h) lines)"
           else
-            echo "bpftool not functional or no BTF. Downloading prebuilt vmlinux.h..."
-            # libbpf-bootstrap maintains a vmlinux.h compatible with kernel 5.8+
-            curl -sSLf \
-              "https://raw.githubusercontent.com/libbpf/libbpf-bootstrap/master/vmlinux/vmlinux.h" \
-              -o bpf/vmlinux.h || {
-              echo "Download failed. Trying alternative source..."
-              curl -sSLf \
-                "https://raw.githubusercontent.com/iovisor/bcc/master/libbpf-tools/vmlinux/vmlinux_508.h" \
-                -o bpf/vmlinux.h
-            }
-            echo "Downloaded prebuilt vmlinux.h ($(wc -l < bpf/vmlinux.h) lines)"
+            echo "Cannot generate vmlinux.h from this kernel. Using bundled minimal vmlinux.h..."
+            # Generate a minimal vmlinux.h from kernel headers that covers
+            # the types we need: pt_regs, trace_event_raw_sys_enter/exit
+            cat > bpf/vmlinux.h << 'VMLINUX_EOF'
+          #ifndef __VMLINUX_H__
+          #define __VMLINUX_H__
+          
+          typedef unsigned char __u8;
+          typedef unsigned short __u16;
+          typedef unsigned int __u32;
+          typedef unsigned long long __u64;
+          typedef signed char __s8;
+          typedef signed short __s16;
+          typedef signed int __s32;
+          typedef signed long long __s64;
+          typedef __u16 __le16;
+          typedef __u32 __le32;
+          typedef __u64 __le64;
+          typedef __u32 __be32;
+          typedef _Bool bool;
+          
+          enum { false = 0, true = 1 };
+          
+          /* x86_64 pt_regs — register state at uprobe entry */
+          struct pt_regs {
+            unsigned long r15, r14, r13, r12;
+            unsigned long bp;
+            unsigned long bx;
+            unsigned long r11, r10, r9, r8;
+            unsigned long ax, cx, dx, si, di;
+            unsigned long orig_ax;
+            unsigned long ip, cs;
+            unsigned long flags;
+            unsigned long sp, ss;
+          };
+          
+          /* tracepoint context for raw_syscalls/sys_enter */
+          struct trace_event_raw_sys_enter {
+            unsigned long long unused;
+            long id;
+            unsigned long args[6];
+          };
+          
+          /* tracepoint context for raw_syscalls/sys_exit */
+          struct trace_event_raw_sys_exit {
+            unsigned long long unused;
+            long id;
+            long ret;
+          };
+          
+          #endif /* __VMLINUX_H__ */
+          VMLINUX_EOF
+            echo "Created minimal vmlinux.h for CO-RE compilation"
           fi
           
-          # Final verification
-          test -s bpf/vmlinux.h || { echo "ERROR: vmlinux.h is empty or missing"; exit 1; }
+          test -s bpf/vmlinux.h || { echo "ERROR: vmlinux.h is empty"; exit 1; }
 
       - name: Install bpf2go
         run: go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
