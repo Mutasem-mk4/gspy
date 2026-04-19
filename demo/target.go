@@ -14,7 +14,9 @@ func simulateMalware() {
 	for {
 		conn, err := net.DialTimeout("tcp", "8.8.8.8:80", 2*time.Second)
 		if err == nil {
-			conn.Write([]byte("PING\n"))
+			if _, err := conn.Write([]byte("ping\n")); err != nil {
+				fmt.Printf("Error writing to connection: %v\n", err)
+			}
 			conn.Close()
 		}
 		time.Sleep(3 * time.Second)
@@ -27,7 +29,9 @@ func simulateKeylogger() {
 	for {
 		f, err := os.OpenFile("/tmp/suspicious_log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
-			f.WriteString("keypress\n")
+			if _, err := f.WriteString("keypress\n"); err != nil {
+				fmt.Printf("Error writing to file: %v\n", err)
+			}
 			f.Close()
 		}
 		time.Sleep(5 * time.Second)
