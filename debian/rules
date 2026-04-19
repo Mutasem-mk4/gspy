@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+# SPDX-License-Identifier: GPL-2.0-only
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	make build-only
+
+override_dh_auto_install:
+	install -Dm 0755 bin/gspy $(CURDIR)/debian/gspy/usr/bin/gspy
+	install -Dm 0644 man/gspy.1 $(CURDIR)/debian/gspy/usr/share/man/man1/gspy.1
+
+override_dh_auto_test:
+	go test -v ./...
+
+override_dh_auto_clean:
+	make clean

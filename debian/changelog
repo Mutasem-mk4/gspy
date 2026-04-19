@@ -1,0 +1,12 @@
+gspy (0.1.0-1) unstable; urgency=medium
+
+  * Initial release.
+  * eBPF-based forensic goroutine-to-syscall inspector for live Go processes.
+  * Supports Go 1.17-1.23 on amd64.
+  * Requires Linux kernel >= 5.8 with BPF ring buffer support.
+  * TUI mode with 1Hz refresh, sort, filter, and expanded goroutine view.
+  * JSON output mode for pipeline processing.
+  * Forensic --readonly mode with SHA-256 binary verification.
+  * Man page and complete documentation included.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Sun, 01 Dec 2024 00:00:00 +0000

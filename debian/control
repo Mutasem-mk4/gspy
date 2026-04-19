@@ -1,0 +1,25 @@
+Source: gspy
+Section: net
+Priority: optional
+Maintainer: Mutasem Kharma <mutasem@gspy.dev>
+Build-Depends: debhelper-compat (= 13), golang-go (>= 1.21), clang (>= 14),
+               libelf-dev, linux-libc-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/mutasemkharma/gspy
+Rules-Requires-Root: no
+
+Package: gspy
+Architecture: amd64
+Depends: ${misc:Depends}
+Suggests: linux-perf
+Description: forensic goroutine-to-syscall inspector for live Go processes
+ gspy attaches to a running Go process and displays a live map of goroutine
+ IDs to kernel syscalls using eBPF uprobes and tracepoints. Designed for
+ security incident response and forensic analysis of Go-based processes.
+ .
+ No instrumentation, no recompilation, no process restart, and no
+ modification of the target binary's memory or hash is required.
+ Goroutine IDs are extracted from thread-local storage via process_vm_readv.
+ .
+ Requires Linux kernel 5.8+ with CONFIG_BPF_SYSCALL=y and
+ CAP_BPF + CAP_PERFMON capabilities (or CAP_SYS_ADMIN).

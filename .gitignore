@@ -1,0 +1,29 @@
+# Build artifacts
+bin/
+gspy
+
+# Generated BPF files
+internal/bpf/gspy_bpfel.go
+internal/bpf/gspy_bpfel.o
+internal/bpf/gspy_bpfeb.go
+internal/bpf/gspy_bpfeb.o
+
+# Go
+vendor/
+*.test
+*.out
+cover.out
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+scratch/
+tmp/

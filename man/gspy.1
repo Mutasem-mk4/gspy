@@ -1,0 +1,223 @@
+.\" SPDX-License-Identifier: GPL-2.0-only
+.\" Copyright (C) 2024 Mutasem Kharma <mutasem@gspy.dev>
+.\"
+.TH GSPY 1 "2024-12-01" "gspy 0.1.0" "Security Tools"
+.SH NAME
+gspy \- forensic goroutine-to-syscall inspector for live Go processes
+.SH SYNOPSIS
+.B gspy
+.I pid
+.RI [ options ]
+.br
+.B gspy
+.B \-\-version
+.br
+.B gspy
+.B \-\-help
+.SH DESCRIPTION
+.B gspy
+(goroutine spy) attaches to a running Go process and displays a live map
+of goroutine IDs to kernel syscalls using eBPF uprobes and tracepoints.
+.PP
+It is designed for security incident response and forensic analysis of
+Go-based processes. No instrumentation, no recompilation, no process
+restart, and no modification of the target binary's memory or file hash
+is required.
+.PP
+Goroutine IDs are extracted from thread-local storage by reading the
+.B runtime.g
+struct via
+.BR process_vm_readv (2)
+(never ptrace). Syscalls are intercepted using kernel tracepoints
+.RB ( raw_syscalls/sys_enter
+and
+.BR raw_syscalls/sys_exit ).
+Goroutine context switches are tracked via uprobes on
+.BR runtime.execute .
+.PP
+Events are collected via a BPF ring buffer and displayed in a terminal
+user interface (TUI) with 1 Hz refresh rate, or emitted as
+newline-delimited JSON for pipeline processing.
+.SH OPTIONS
+.TP
+.B \-\-top
+Sort by syscall frequency (default).
+.TP
+.B \-\-latency
+Sort by highest current syscall latency.
+.TP
+.BI \-\-filter " mode"
+Filter displayed syscalls by category.
+.I mode
+can be one of:
+.BR all " (default),"
+.BR io " (read, write, open, etc.),"
+.BR net " (socket, connect, accept, etc.),"
+.BR sched " (futex, nanosleep, sched_yield, etc.)."
+.TP
+.B \-\-readonly
+Forensic mode. Computes and displays the SHA-256 hash of the target
+binary on attach. Guarantees zero writes to target process memory.
+Logs "READONLY MODE" to stderr.
+.TP
+.B \-\-json
+Emit one JSON object per line per syscall event to stdout. No TUI.
+Signal-safe and pipeable.
+.TP
+.B \-\-debug
+Print BPF verifier log and map statistics to stderr on startup.
+.TP
+.B \-\-version
+Print version information and exit.
+.TP
+.B \-\-help
+Print usage information and exit.
+.SH FORENSIC MODE
+When
+.B \-\-readonly
+is specified, gspy operates in forensic mode:
+.IP \(bu 2
+Computes and logs the SHA-256 hash of the target binary on attach.
+.IP \(bu 2
+Guarantees zero writes to target process memory. gspy only uses
+.BR process_vm_readv (2),
+which is a read-only system call.
+.IP \(bu 2
+The SHA-256 hash is displayed in the TUI header and included in JSON output.
+.IP \(bu 2
+Logs "READONLY MODE: no writes to target process memory" to stderr.
+.PP
+This mode is designed for chain-of-custody scenarios where the target
+binary's integrity must be preserved and verifiable.
+.SH GOROUTINE ID EXTRACTION
+gspy extracts goroutine IDs by:
+.IP 1. 4
+Attaching a uprobe to
+.B runtime.execute
+in the target Go binary.
+.IP 2.
+Reading the goroutine pointer from the RAX register
+(Go 1.17+ ABIInternal on amd64, where the first argument is passed in RAX).
+.IP 3.
+Using
+.BR bpf_probe_read_user ()
+to read the
+.B goid
+field from the
+.B runtime.g
+struct at a version-specific offset.
+.IP 4.
+Maintaining a TID \(-> GID map in a BPF hash table.
+.PP
+The goid offset is determined by:
+.IP 1. 4
+DWARF debug information in the target binary (most accurate).
+.IP 2.
+A hardcoded offset table verified against Go runtime source code
+for Go 1.17 through 1.23 on amd64.
+.IP 3.
+A fallback default of 152 bytes with a logged warning.
+.SH SUPPORTED GO VERSIONS
+Go 1.17 through 1.23 on amd64 (verified).
+.PP
+arm64 is experimental \(em goid offsets are unverified and may be incorrect.
+Other architectures are unsupported.
+.SH KERNEL REQUIREMENTS
+.IP \(bu 2
+Linux kernel >= 5.8 (required for BPF ring buffer support).
+.IP \(bu 2
+.B CONFIG_BPF_SYSCALL=y
+(enabled in all major distributions).
+.IP \(bu 2
+.B CONFIG_DEBUG_INFO_BTF=y
+recommended for CO-RE portability.
+.IP \(bu 2
+.B perf_event_paranoid
+<= 2 recommended. If higher, gspy warns but attempts to continue.
+.SH CAPABILITIES
+gspy requires one of:
+.IP \(bu 2
+.B CAP_BPF
++
+.B CAP_PERFMON
+(preferred, Linux 5.8+).
+.IP \(bu 2
+.B CAP_SYS_ADMIN
+(fallback for older configurations).
+.PP
+To grant capabilities without running as root:
+.PP
+.RS
+sudo setcap cap_bpf,cap_perfmon+ep $(which gspy)
+.RE
+.SH EXIT CODES
+.TP
+.B 0
+Normal exit, or target process exited cleanly.
+.TP
+.B 1
+Fatal error (missing capabilities, invalid PID, BPF load failure).
+.TP
+.B 2
+Kernel version too old (< 5.8).
+.TP
+.B 130
+Interrupted by SIGINT (Ctrl-C).
+.SH KNOWN LIMITATIONS
+.IP \(bu 2
+arm64 goid offsets are unverified and may produce incorrect goroutine IDs.
+.IP \(bu 2
+Go generics may produce inlined frames that resolve incorrectly.
+.IP \(bu 2
+Processes with ASLR and no DWARF info may have partial frame resolution.
+.IP \(bu 2
+cgroupv1 namespaces are unsupported.
+.IP \(bu 2
+Kernel < 5.8 is not supported; gspy exits with exit code 2.
+.IP \(bu 2
+Stripped binaries (no symbol table) display raw hex addresses instead of
+function names.
+.SH EXAMPLES
+Basic attach to a running Go process:
+.PP
+.RS
+sudo gspy 1234
+.RE
+.PP
+Forensic readonly mode with network filter:
+.PP
+.RS
+sudo gspy 1234 \-\-readonly \-\-filter net
+.RE
+.PP
+JSON pipeline \(em find syscalls with latency > 1ms:
+.PP
+.RS
+sudo gspy 1234 \-\-json | jq 'select(.latency_us > 1000)'
+.RE
+.PP
+Sort by latency to find blocked goroutines:
+.PP
+.RS
+sudo gspy 1234 \-\-latency
+.RE
+.PP
+Debug BPF loading issues:
+.PP
+.RS
+sudo gspy 1234 \-\-debug
+.RE
+.SH SEE ALSO
+.BR bpf (2),
+.BR process_vm_readv (2),
+.BR bpftool (8),
+.BR dlv (1),
+.BR strace (1),
+.BR perf (1)
+.SH AUTHOR
+Mutasem Kharma <mutasem@gspy.dev>
+.SH LICENSE
+GPL-2.0-only
+.PP
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
