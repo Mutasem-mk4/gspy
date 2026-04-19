@@ -288,7 +288,7 @@ func runJSON(ctx context.Context, mgr bpf.Manager,
 			return
 		}
 
-		frame := resolver.Resolve(evt.FramePC)
+		var frame string
 		if resolver != nil {
 			frame = resolver.Resolve(evt.FramePC)
 		}
