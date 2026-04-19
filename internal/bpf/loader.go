@@ -62,17 +62,24 @@ func (m *realManager) LoadAndAttach(pid int, binaryPath string, gidOffset uint64
 	}
 
 	// Step 3: Rewrite constants to target the specific PID and GID offset.
-	if err := spec.RewriteConstants(map[string]interface{}{
+	consts := map[string]interface{}{
 		"target_pid": uint32(pid),
 		"gid_offset": uint64(gidOffset),
-	}); err != nil {
-		return fmt.Errorf("rewriting BPF constants: %w", err)
+	}
+	for name, val := range consts {
+		if v, ok := spec.Variables[name]; ok {
+			if err := v.Set(val); err != nil {
+				return fmt.Errorf("setting BPF variable %s: %w", name, err)
+			}
+		} else {
+			return fmt.Errorf("BPF variable %s not found in spec", name)
+		}
 	}
 
 	// Step 4: Load BPF objects with verifier logging for --debug.
 	var opts ebpf.CollectionOptions
 	opts.Programs.LogLevel = ebpf.LogLevelInstruction
-	opts.Programs.LogSize = 1 << 20 // 1MB verifier log buffer
+	opts.Programs.VerifierLogSize = 1 << 20 // 1MB verifier log buffer
 
 	objs := &gspyObjects{}
 	if err := spec.LoadAndAssign(objs, &opts); err != nil {
