@@ -153,14 +153,14 @@ func RenderEmptyState(width, height int) string {
 	var b strings.Builder
 	// Center vertically
 	for i := 0; i < (height/2)-2; i++ {
-		b.WriteString("\n")
+		_, _ = b.WriteString("\n")
 	}
 	for _, l := range lines {
 		pad := (width - lipgloss.Width(l)) / 2
 		if pad < 0 {
 			pad = 0
 		}
-		b.WriteString(strings.Repeat(" ", pad) + l + "\n")
+		_, _ = b.WriteString(strings.Repeat(" ", pad) + l + "\n")
 	}
 	return b.String()
 }
@@ -241,8 +241,8 @@ func RenderFooter(width int, text string, processExited bool) string {
 // RenderHelp renders the help overlay.
 func RenderHelp(width, height int) string {
 	var b strings.Builder
-	b.WriteString(expandedTitleStyle.Render(" gspy Keybindings "))
-	b.WriteString("\n\n")
+	_, _ = b.WriteString(expandedTitleStyle.Render(" gspy Keybindings "))
+	_, _ = b.WriteString("\n\n")
 
 	keys := [][]string{
 		{"q / ctrl+c", "Quit gspy"},
@@ -257,11 +257,11 @@ func RenderHelp(width, height int) string {
 	}
 
 	for _, k := range keys {
-		b.WriteString(fmt.Sprintf("  %-12s  %s\n", k[0], k[1]))
+		_, _ = b.WriteString(fmt.Sprintf("  %-12s  %s\n", k[0], k[1]))
 	}
 
-	b.WriteString("\n")
-	b.WriteString(dimStyle.Render(" Press any key to close "))
+	_, _ = b.WriteString("\n")
+	_, _ = b.WriteString(dimStyle.Render(" Press any key to close "))
 
 	content := b.String()
 	if width > 40 && height > 15 {
@@ -280,16 +280,16 @@ func RenderExpanded(row *GoroutineRow, width, height int,
 
 	// Title
 	title := fmt.Sprintf("Goroutine %d — %s", row.GID, row.State)
-	b.WriteString(expandedTitleStyle.Render(title))
-	b.WriteString("\n\n")
+	_, _ = b.WriteString(expandedTitleStyle.Render(title))
+	_, _ = b.WriteString("\n\n")
 
 	// Top half: stack trace
-	b.WriteString(columnHeaderStyle.Render("Stack Trace:"))
-	b.WriteString("\n")
+	_, _ = b.WriteString(columnHeaderStyle.Render("Stack Trace:"))
+	_, _ = b.WriteString("\n")
 
 	if len(stackFrames) == 0 {
-		b.WriteString(dimStyle.Render("  (no stack frames available)"))
-		b.WriteString("\n")
+		_, _ = b.WriteString(dimStyle.Render("  (no stack frames available)"))
+		_, _ = b.WriteString("\n")
 	} else {
 		maxFrames := (height - 8) / 2
 		if maxFrames < 4 {
@@ -297,9 +297,9 @@ func RenderExpanded(row *GoroutineRow, width, height int,
 		}
 		for i, frame := range stackFrames {
 			if i >= maxFrames {
-				b.WriteString(dimStyle.Render(
+				_, _ = b.WriteString(dimStyle.Render(
 					fmt.Sprintf("  ... %d more frames", len(stackFrames)-i)))
-				b.WriteString("\n")
+				_, _ = b.WriteString("\n")
 				break
 			}
 			prefix := "  "
@@ -310,24 +310,24 @@ func RenderExpanded(row *GoroutineRow, width, height int,
 			if len(line) > width-2 {
 				line = line[:width-5] + "..."
 			}
-			b.WriteString(line)
-			b.WriteString("\n")
+			_, _ = b.WriteString(line)
+			_, _ = b.WriteString("\n")
 		}
 	}
 
-	b.WriteString("\n")
+	_, _ = b.WriteString("\n")
 
 	// Bottom half: recent syscalls
-	b.WriteString(columnHeaderStyle.Render("Recent Syscalls:"))
-	b.WriteString("\n")
+	_, _ = b.WriteString(columnHeaderStyle.Render("Recent Syscalls:"))
+	_, _ = b.WriteString("\n")
 
 	header := fmt.Sprintf("  %-14s %-12s %s", "SYSCALL", "LATENCY", "FRAME")
-	b.WriteString(dimStyle.Render(header))
-	b.WriteString("\n")
+	_, _ = b.WriteString(dimStyle.Render(header))
+	_, _ = b.WriteString("\n")
 
 	if len(recentSyscalls) == 0 {
-		b.WriteString(dimStyle.Render("  (no syscalls recorded)"))
-		b.WriteString("\n")
+		_, _ = b.WriteString(dimStyle.Render("  (no syscalls recorded)"))
+		_, _ = b.WriteString("\n")
 	} else {
 		maxSyscalls := (height - 8) / 2
 		if maxSyscalls < 4 {
@@ -351,16 +351,16 @@ func RenderExpanded(row *GoroutineRow, width, height int,
 			}
 
 			if sc.LatencyUS > 100000 { // > 100ms
-				b.WriteString(redStyle.Render(line))
+				_, _ = b.WriteString(redStyle.Render(line))
 			} else {
-				b.WriteString(line)
+				_, _ = b.WriteString(line)
 			}
-			b.WriteString("\n")
+			_, _ = b.WriteString("\n")
 		}
 	}
 
-	b.WriteString("\n")
-	b.WriteString(dimStyle.Render("  ESC to return"))
+	_, _ = b.WriteString("\n")
+	_, _ = b.WriteString(dimStyle.Render("  ESC to return"))
 
 	content := b.String()
 

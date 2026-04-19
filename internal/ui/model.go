@@ -258,6 +258,12 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleSyscallEvent processes a BPF syscall event.
 func (m *Model) handleSyscallEvent(evt bpf.SyscallEvent) {
+	if m.recentSyscalls == nil {
+		m.recentSyscalls = make(map[uint64][]SyscallRecord)
+	}
+	if m.table == nil {
+		return
+	}
 	switch evt.EventType {
 	case bpf.EventSyscall:
 		syscallName := bpf.SyscallName(evt.SyscallNr)
@@ -326,14 +332,14 @@ func (m *Model) renderTable() string {
 	header := RenderHeader(m.width, m.config.PID, m.config.Binary,
 		m.config.GoVersion, m.table.GoroutineCount(), uptime,
 		m.table.Filter, m.config.Readonly, m.config.SHA256, m.pulse)
-	b.WriteString(header)
-	b.WriteString("\n")
+	_, _ = b.WriteString(header)
+	_, _ = b.WriteString("\n")
 
 	// Column headers with sort indicator
 	sortCol, sortInd := m.table.SortColumnName()
 	colHeaders := RenderColumnHeaders(m.width, sortCol, sortInd)
-	b.WriteString(colHeaders)
-	b.WriteString("\n")
+	_, _ = b.WriteString(colHeaders)
+	_, _ = b.WriteString("\n")
 
 	// Table rows
 	visibleRows := m.table.VisibleSlice()
@@ -341,7 +347,7 @@ func (m *Model) renderTable() string {
 	maxRows := m.table.MaxVisibleRows()
 
 	if len(visibleRows) == 0 {
-		b.WriteString(RenderEmptyState(m.width, maxRows))
+		_, _ = b.WriteString(RenderEmptyState(m.width, maxRows))
 		rowsRendered = maxRows
 	}
 
@@ -359,17 +365,17 @@ func (m *Model) renderTable() string {
 
 	// Pad remaining rows
 	for rowsRendered < maxRows {
-		b.WriteString(strings.Repeat(" ", m.width))
-		b.WriteString("\n")
+		_, _ = b.WriteString(strings.Repeat(" ", m.width))
+		_, _ = b.WriteString("\n")
 		rowsRendered++
 	}
 
 	// Footer
 	footer := m.flash
 	if footer == "" {
-		footer = " q:quit  cr:expand  f:filter  s:sort  ŝ:order  ^j:dump  ?:help"
+		footer = " q:quit  cr:expand  f:filter  s:sort  S:order  ^j:dump  ?:help"
 	}
-	b.WriteString(RenderFooter(m.width, footer, m.processExited))
+	_, _ = b.WriteString(RenderFooter(m.width, footer, m.processExited))
 
 	return b.String()
 }
