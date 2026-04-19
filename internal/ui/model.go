@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mutasemkharma/gspy/internal/bpf"
 )
 
@@ -34,13 +34,13 @@ type ErrorMsg struct{ Err error }
 
 // Config holds runtime configuration passed to the TUI model.
 type Config struct {
-	PID        int
-	Binary     string
-	GoVersion  string
-	Readonly   bool
-	SHA256     string
-	Filter     FilterMode
-	SortMode   SortMode
+	PID       int
+	Binary    string
+	GoVersion string
+	Readonly  bool
+	SHA256    string
+	Filter    FilterMode
+	SortMode  SortMode
 }
 
 // Model is the bubbletea Model for gspy's TUI.
@@ -274,20 +274,12 @@ func (m *Model) renderTable() string {
 	rowsRendered := 0
 	maxRows := m.table.MaxVisibleRows()
 
-	for i, row := range visibleRows {
+	for _, row := range visibleRows {
 		if rowsRendered >= maxRows {
 			break
 		}
-		// Determine if this row is selected (need global index).
-		// VisibleSlice handles viewport, so index 0 of visibleRows
-		// isn't necessarily SelectedIdx=0.
-		globalIdx := i
-		if len(m.table.Rows) > maxRows && m.table.SelectedIdx >= maxRows {
-			globalIdx = i + m.table.SelectedIdx - maxRows + 1
-		}
-		selected := (globalIdx == m.table.SelectedIdx)
-		// Actually, let's use a simpler approach:
-		selected = (row == m.table.SelectedRow())
+		// Check if this row is the selected row by pointer.
+		selected := (row == m.table.SelectedRow())
 
 		b.WriteString(RenderRow(row, m.width, selected))
 		b.WriteString("\n")

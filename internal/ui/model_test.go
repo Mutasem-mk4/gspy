@@ -21,7 +21,7 @@ func makeTestRows(n int) []*GoroutineRow {
 			State:     states[i%len(states)],
 			Syscall:   syscalls[i%len(syscalls)],
 			LatencyUS: int64((i + 1) * 1000), // 1ms, 2ms, 3ms, ...
-			Count:     int64((n - i) * 100),   // descending counts
+			Count:     int64((n - i) * 100),  // descending counts
 			Frame:     "net/http.(*conn).serve",
 		}
 	}

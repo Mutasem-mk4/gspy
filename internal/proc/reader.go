@@ -262,10 +262,12 @@ type ReadFunc func(pid int, addr uintptr, size int) ([]byte, error)
 // process_vm_readv(2) is a read-only operation. It cannot modify the target
 // process's memory. This is asserted here for --readonly mode compliance.
 // The syscall signature is:
-//   ssize_t process_vm_readv(pid_t pid,
-//     const struct iovec *local_iov, unsigned long liovcnt,
-//     const struct iovec *remote_iov, unsigned long riovcnt,
-//     unsigned long flags);
+//
+//	ssize_t process_vm_readv(pid_t pid,
+//	  const struct iovec *local_iov, unsigned long liovcnt,
+//	  const struct iovec *remote_iov, unsigned long riovcnt,
+//	  unsigned long flags);
+//
 // There is no write counterpart used by gspy.
 type ProcessReader struct {
 	pid      int

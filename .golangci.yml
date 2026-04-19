@@ -4,12 +4,6 @@
 run:
   timeout: 5m
   modules-download-mode: readonly
-  # Skip generated BPF files and test files that import them
-  skip-dirs:
-    - vendor
-  skip-files:
-    - ".*_bpfel.*\\.go$"
-    - ".*_bpfeb.*\\.go$"
 
 linters:
   enable:
@@ -26,8 +20,6 @@ linters:
     - gosec
 
 linters-settings:
-  govet:
-    check-shadowing: false
   staticcheck:
     checks:
       - all
@@ -37,6 +29,11 @@ issues:
   # Don't limit per-linter issue count
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-dirs:
+    - vendor
+  exclude-files:
+    - ".*_bpfel.*\\.go$"
+    - ".*_bpfeb.*\\.go$"
   exclude-rules:
     # Allow unused parameters in interface implementations
     - linters:

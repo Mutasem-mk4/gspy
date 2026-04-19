@@ -31,7 +31,7 @@ type SortDirection int
 
 const (
 	SortDesc SortDirection = iota // ▼ descending (default)
-	SortAsc                      // ▲ ascending
+	SortAsc                       // ▲ ascending
 )
 
 // FilterMode defines which syscall categories to display.
@@ -94,8 +94,8 @@ type Table struct {
 	Expanded    bool // true when showing expanded goroutine view
 
 	// Sort state
-	Sort      SortMode
-	SortDir   SortDirection
+	Sort    SortMode
+	SortDir SortDirection
 
 	// Filter state
 	Filter FilterMode

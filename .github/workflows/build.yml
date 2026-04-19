@@ -104,25 +104,56 @@ jobs:
 
       - name: Generate vmlinux.h from kernel BTF
         run: |
-          # Try bpftool first; fall back to installing it
-          if command -v bpftool &> /dev/null && [ -f /sys/kernel/btf/vmlinux ]; then
-            bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
-            echo "Generated vmlinux.h from running kernel BTF"
-          else
-            echo "bpftool or BTF not available, attempting to install..."
-            sudo apt-get install -y linux-tools-$(uname -r) bpftool 2>/dev/null || true
-            if [ -f /sys/kernel/btf/vmlinux ]; then
-              bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
-              echo "Generated vmlinux.h after installing bpftool"
-            else
-              echo "ERROR: No BTF available on this kernel. Cannot generate vmlinux.h."
-              echo "The GitHub runner kernel may not have CONFIG_DEBUG_INFO_BTF=y"
-              exit 1
+          # GitHub runners have BTF but bpftool may be at a versioned path.
+          # Try multiple approaches to find bpftool.
+          BPFTOOL=""
+          
+          # Method 1: bpftool in PATH
+          if command -v bpftool &> /dev/null; then
+            BPFTOOL="bpftool"
+          fi
+          
+          # Method 2: versioned linux-tools path (Ubuntu runners)
+          if [ -z "$BPFTOOL" ]; then
+            KERNEL=$(uname -r)
+            VERSIONED="/usr/lib/linux-tools/${KERNEL}/bpftool"
+            if [ -f "$VERSIONED" ]; then
+              BPFTOOL="$VERSIONED"
             fi
           fi
+          
+          # Method 3: install linux-tools-generic and try again
+          if [ -z "$BPFTOOL" ]; then
+            sudo apt-get install -y linux-tools-$(uname -r) linux-tools-generic 2>/dev/null || true
+            if command -v bpftool &> /dev/null; then
+              BPFTOOL="bpftool"
+            fi
+            # Check versioned path again
+            KERNEL=$(uname -r)
+            for path in /usr/lib/linux-tools/*/bpftool; do
+              if [ -f "$path" ]; then
+                BPFTOOL="$path"
+                break
+              fi
+            done
+          fi
+
+          if [ -n "$BPFTOOL" ] && [ -f /sys/kernel/btf/vmlinux ]; then
+            echo "Using bpftool at: $BPFTOOL"
+            $BPFTOOL btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
+            echo "Generated vmlinux.h from running kernel BTF"
+          else
+            echo "BTF not available via bpftool. Downloading prebuilt vmlinux.h..."
+            # Download a prebuilt vmlinux.h for a recent Ubuntu kernel
+            curl -sSL \
+              "https://raw.githubusercontent.com/libbpf/libbpf-bootstrap/master/vmlinux/vmlinux.h" \
+              -o bpf/vmlinux.h
+            echo "Downloaded prebuilt vmlinux.h"
+          fi
+          
           # Verify vmlinux.h was generated
           ls -la bpf/vmlinux.h
-          head -5 bpf/vmlinux.h
+          wc -l bpf/vmlinux.h
 
       - name: Install bpf2go
         run: go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
