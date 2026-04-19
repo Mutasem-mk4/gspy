@@ -1,6 +1,6 @@
 # Build artifacts
 bin/
-gspy
+/gspy
 
 # Generated BPF files
 internal/bpf/gspy_bpfel.go

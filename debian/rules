@@ -1,18 +1,28 @@
 #!/usr/bin/make -f
-# SPDX-License-Identifier: GPL-2.0-only
+
+export DH_GOPKG := github.com/mutasemkharma/gspy
+export CGO_ENABLED := 0
+export GOPATH := $(CURDIR)/obj-$(DEB_BUILD_GNU_TYPE)/go
+export PATH := $(GOPATH)/bin:$(PATH)
 
 %:
-	dh $@
+	dh $@ --buildsystem=golang --builddirectory=obj-$(DEB_BUILD_GNU_TYPE)
+
+override_dh_auto_configure:
+	# Install bpf2go for generation
+	go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
+	dh_auto_configure
 
 override_dh_auto_build:
-	make build-only
+	# Generate BPF bytecode first
+	make generate
+	# Build the binary
+	make build VERSION=$(DEB_VERSION_UPSTREAM)
 
 override_dh_auto_install:
-	install -Dm 0755 bin/gspy $(CURDIR)/debian/gspy/usr/bin/gspy
-	install -Dm 0644 man/gspy.1 $(CURDIR)/debian/gspy/usr/share/man/man1/gspy.1
+	install -D -m 0755 bin/gspy $(CURDIR)/debian/gspy/usr/bin/gspy
+	install -D -m 0644 man/gspy.1 $(CURDIR)/debian/gspy/usr/share/man/man1/gspy.1
 
 override_dh_auto_test:
-	go test -v ./...
-
-override_dh_auto_clean:
-	make clean
+	# Run tests with mock BPF to avoid needing root/BPF in build environment
+	go test -v -tags=testing ./...

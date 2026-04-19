@@ -69,7 +69,7 @@ man:
 # Generate vmlinux.h from the running kernel's BTF data.
 # Only needed if vmlinux.h is not already present.
 vmlinux:
-	bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/bpf/vmlinux.h
+	bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
 
 # Vendor all dependencies for offline builds and distro packaging.
 vendor:

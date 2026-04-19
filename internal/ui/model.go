@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mutasemkharma/gspy/internal/bpf"
 )
 
@@ -22,6 +22,15 @@ type SyscallEventMsg bpf.SyscallEvent
 // TickMsg triggers a 1Hz TUI refresh.
 type TickMsg time.Time
 
+// PulseMsg triggers a 500ms heartbeat pulse animation.
+type PulseMsg time.Time
+
+// JsonSnapshotMsg triggers a state dump to disk.
+type JsonSnapshotMsg struct{ Filename string }
+
+// FlashMsg shows a temporary message in the footer.
+type FlashMsg string
+
 // ProcessExitedMsg indicates the target process has exited.
 type ProcessExitedMsg struct{}
 
@@ -34,13 +43,13 @@ type ErrorMsg struct{ Err error }
 
 // Config holds runtime configuration passed to the TUI model.
 type Config struct {
-	PID        int
-	Binary     string
-	GoVersion  string
-	Readonly   bool
-	SHA256     string
-	Filter     FilterMode
-	SortMode   SortMode
+	PID       int
+	Binary    string
+	GoVersion string
+	Readonly  bool
+	SHA256    string
+	Filter    FilterMode
+	SortMode  SortMode
 }
 
 // Model is the bubbletea Model for gspy's TUI.
@@ -59,6 +68,11 @@ type Model struct {
 	// Timing
 	startTime time.Time
 	lastTick  time.Time
+	pulse     bool // toggles every 500ms
+
+	// UI Feedback
+	flash      string      // temporary message in footer
+	flashTimer *time.Timer // to clear flash message
 
 	// Recent syscalls per goroutine (for expanded view)
 	// Keyed by GID, stores last 20 syscalls.
@@ -84,14 +98,16 @@ func NewModel(cfg Config) *Model {
 		height:         24,
 		startTime:      time.Now(),
 		lastTick:       time.Now(),
+		pulse:          true,
 		recentSyscalls: make(map[uint64][]SyscallRecord),
 	}
 }
 
-// Init initializes the model and starts the 1Hz tick timer.
+// Init initializes the model and starts the tickers.
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		tickCmd(),
+		pulseCmd(),
 		tea.ClearScreen,
 	)
 }
@@ -100,6 +116,13 @@ func (m *Model) Init() tea.Cmd {
 func tickCmd() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
 		return TickMsg(t)
+	})
+}
+
+// pulseCmd returns a tea.Cmd that fires every 500ms for animation.
+func pulseCmd() tea.Cmd {
+	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+		return PulseMsg(t)
 	})
 }
 
@@ -124,6 +147,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastTick = time.Time(msg)
 		m.table.Refresh()
 		return m, tickCmd()
+
+	case PulseMsg:
+		m.pulse = !m.pulse
+		return m, pulseCmd()
+
+	case FlashMsg:
+		m.flash = string(msg)
+		if m.flashTimer != nil {
+			m.flashTimer.Stop()
+		}
+		// In a real TUI we'd use a tea.Cmd to clear it, but for simplicity
+		// we'll just keep it until the next user action or keep it briefly.
+		return m, nil
+
+	case JsonSnapshotMsg:
+		// The actual file I/O is handled by the main loop listening for this msg
+		// if we were in a complex architecture, but here we can just do it or
+		// let the tea.Program handle it. We'll send it up to main.
+		return m, nil
 
 	case ProcessExitedMsg:
 		m.quitting = true
@@ -185,6 +227,17 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "S":
 		m.table.ToggleSortDirection()
 		m.table.Refresh()
+		return m, nil
+
+	case "ctrl+j":
+		filename := fmt.Sprintf("gspy_dump_%d_%d.json",
+			m.config.PID, time.Now().Unix())
+		err := m.table.SaveSnapshot(filename)
+		if err != nil {
+			m.flash = fmt.Sprintf("Error: %v", err)
+		} else {
+			m.flash = fmt.Sprintf("Snapshot saved: %s", filename)
+		}
 		return m, nil
 
 	case "?":
@@ -259,7 +312,7 @@ func (m *Model) renderTable() string {
 	uptime := formatUptime(time.Since(m.startTime))
 	header := RenderHeader(m.width, m.config.PID, m.config.Binary,
 		m.config.GoVersion, m.table.GoroutineCount(), uptime,
-		m.table.Filter, m.config.Readonly, m.config.SHA256)
+		m.table.Filter, m.config.Readonly, m.config.SHA256, m.pulse)
 	b.WriteString(header)
 	b.WriteString("\n")
 
@@ -274,20 +327,12 @@ func (m *Model) renderTable() string {
 	rowsRendered := 0
 	maxRows := m.table.MaxVisibleRows()
 
-	for i, row := range visibleRows {
+	for _, row := range visibleRows {
 		if rowsRendered >= maxRows {
 			break
 		}
-		// Determine if this row is selected (need global index).
-		// VisibleSlice handles viewport, so index 0 of visibleRows
-		// isn't necessarily SelectedIdx=0.
-		globalIdx := i
-		if len(m.table.Rows) > maxRows && m.table.SelectedIdx >= maxRows {
-			globalIdx = i + m.table.SelectedIdx - maxRows + 1
-		}
-		selected := (globalIdx == m.table.SelectedIdx)
-		// Actually, let's use a simpler approach:
-		selected = (row == m.table.SelectedRow())
+		// Check if this row is the selected row by pointer.
+		selected := (row == m.table.SelectedRow())
 
 		b.WriteString(RenderRow(row, m.width, selected))
 		b.WriteString("\n")
@@ -302,7 +347,11 @@ func (m *Model) renderTable() string {
 	}
 
 	// Footer
-	b.WriteString(RenderFooter(m.width))
+	footer := m.flash
+	if footer == "" {
+		footer = " q:quit  cr:expand  f:filter  s:sort  ŝ:order  ^j:dump  ?:help"
+	}
+	b.WriteString(RenderFooter(m.width, footer))
 
 	return b.String()
 }

@@ -23,7 +23,6 @@ import (
 type MockManager struct {
 	mu        sync.RWMutex
 	metas     map[uint64]*GoroutineMeta
-	events    []SyscallEvent
 	eventCh   chan SyscallEvent
 	attached  bool
 	debugInfo string

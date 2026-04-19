@@ -7,6 +7,8 @@
 package ui
 
 import (
+	"encoding/json"
+	"os"
 	"sort"
 	"strings"
 
@@ -31,7 +33,7 @@ type SortDirection int
 
 const (
 	SortDesc SortDirection = iota // ▼ descending (default)
-	SortAsc                      // ▲ ascending
+	SortAsc                       // ▲ ascending
 )
 
 // FilterMode defines which syscall categories to display.
@@ -94,8 +96,8 @@ type Table struct {
 	Expanded    bool // true when showing expanded goroutine view
 
 	// Sort state
-	Sort      SortMode
-	SortDir   SortDirection
+	Sort    SortMode
+	SortDir SortDirection
 
 	// Filter state
 	Filter FilterMode
@@ -342,4 +344,17 @@ func (t *Table) VisibleSlice() []*GoroutineRow {
 // FilterString returns a display string for the current filter mode.
 func (t *Table) FilterString() string {
 	return strings.ToLower(string(t.Filter))
+}
+
+// SaveSnapshot exports the entire current table state to a JSON file.
+func (t *Table) SaveSnapshot(filename string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	encoder := json.NewEncoder(f)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(t.AllRows)
 }
