@@ -1,3 +1,17 @@
+gspy (0.1.1-1) unstable; urgency=low
+
+  * Hardened for security distribution acceptance (Kali, BlackArch, Parrot).
+  * Fixed version string reporting in CI to use git describe.
+  * Hardened binary verification in CI (removed silenced tests).
+  * Restored gzipped man page to release artifacts.
+  * Complied with Debian build policy (removed internet access during build).
+  * Refactored TUI flash messages with timed auto-clear (3s).
+  * Implemented real-process BPF integration tests in CI.
+  * Verified all source files contain SPDX-License-Identifier tags.
+  * Relocated and modernized PKGBUILD for BlackArch compatibility.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Sun, 19 Apr 2026 10:55:00 +0000
+
 gspy (0.1.0-1) unstable; urgency=medium
 
   * Initial release.
