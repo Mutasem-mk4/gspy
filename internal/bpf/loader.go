@@ -15,6 +15,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -59,6 +60,11 @@ func (m *realManager) LoadAndAttach(pid int, binaryPath string, gidOffset uint64
 	spec, err := loadGspy()
 	if err != nil {
 		return fmt.Errorf("loading BPF spec: %w", err)
+	}
+
+	// SAST Bounds Check: Prevent integer overflow during uint32 cast.
+	if pid <= 0 || int64(pid) > math.MaxUint32 {
+		return fmt.Errorf("invalid PID: %d out of bounds for uint32", pid)
 	}
 
 	// Step 3: Rewrite constants to target the specific PID and GID offset.
