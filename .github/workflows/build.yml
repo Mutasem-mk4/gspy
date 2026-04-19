@@ -36,7 +36,7 @@ jobs:
 
       - name: Install BPF toolchain and Generate
         run: |
-          sudo apt-get update && sudo apt-get install -y clang-${{ env.CLANG_VERSION }} llvm-${{ env.CLANG_VERSION }}
+          sudo apt-get update && sudo apt-get install -y clang-${{ env.CLANG_VERSION }} llvm-${{ env.CLANG_VERSION }} libbpf-dev libelf-dev
           sudo ln -sf /usr/bin/clang-${{ env.CLANG_VERSION }} /usr/bin/clang
           sudo ln -sf /usr/bin/llvm-strip-${{ env.CLANG_VERSION }} /usr/bin/llvm-strip
           go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
