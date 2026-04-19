@@ -184,7 +184,7 @@ jobs:
           test -s man/gspy.1 || { echo "ERROR: man/gspy.1 is missing or empty"; exit 1; }
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gspy-linux-amd64
           path: bin/gspy
