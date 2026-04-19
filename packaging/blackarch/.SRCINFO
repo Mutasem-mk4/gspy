@@ -1,0 +1,21 @@
+pkgbase = gspy
+	pkgdesc = Forensic goroutine-to-syscall inspector for live Go processes (Zero Ptrace overhead)
+	pkgver = 0.2.0
+	pkgrel = 1
+	url = https://github.com/Mutasem-mk4/gspy
+	arch = x86_64
+	arch = aarch64
+	groups = blackarch
+	groups = blackarch-forensic
+	groups = blackarch-debugger
+	license = GPL2
+	makedepends = go>=1.21
+	makedepends = clang>=14
+	makedepends = llvm>=14
+	makedepends = libbpf
+	makedepends = bpftool
+	depends = glibc
+	source = gspy-0.2.0.tar.gz::https://github.com/Mutasem-mk4/gspy/archive/refs/tags/v0.2.0.tar.gz
+	sha256sums = SKIP
+
+pkgname = gspy

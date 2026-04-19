@@ -1,0 +1,43 @@
+# Maintainer: Mutasem Kharma <mutasem@gspy.dev>
+# SPDX-License-Identifier: GPL-2.0-only
+pkgname=gspy
+pkgver=0.2.0
+pkgrel=1
+pkgdesc="Forensic goroutine-to-syscall inspector for live Go processes (Zero Ptrace overhead)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/Mutasem-mk4/gspy"
+license=('GPL2')
+groups=('blackarch' 'blackarch-forensic' 'blackarch-debugger')
+depends=('glibc')
+makedepends=('go>=1.21' 'clang>=14' 'llvm>=14' 'libbpf' 'bpftool')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+    cd "$pkgname-$pkgver"
+    # Ensure bpf2go is available for the build
+    go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
+}
+
+build() {
+    cd "$pkgname-$pkgver"
+    export CGO_ENABLED=0
+    export PATH=$PATH:$(go env GOPATH)/bin
+    
+    # We use the curated vmlinux.h in the source to ensure multi-arch stability
+    # instead of host-dependent BTF generation.
+    make generate
+    make build VERSION=$pkgver
+}
+
+check() {
+    cd "$pkgname-$pkgver"
+    # Run mock tests to ensure stability
+    go test -v -tags=testing ./...
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    make DESTDIR="$pkgdir" install
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
