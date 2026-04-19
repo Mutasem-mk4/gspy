@@ -104,56 +104,47 @@ jobs:
 
       - name: Generate vmlinux.h from kernel BTF
         run: |
-          # GitHub runners have BTF but bpftool may be at a versioned path.
-          # Try multiple approaches to find bpftool.
+          # Install the runner-specific kernel tools (Azure kernel on GitHub)
+          KERNEL=$(uname -r)
+          echo "Runner kernel: $KERNEL"
+          
+          # Try installing the exact kernel tools package
+          sudo apt-get install -y "linux-tools-${KERNEL}" 2>/dev/null || \
+          sudo apt-get install -y linux-tools-azure 2>/dev/null || \
+          sudo apt-get install -y linux-tools-generic 2>/dev/null || true
+          
+          # Find a working bpftool
           BPFTOOL=""
-          
-          # Method 1: bpftool in PATH
-          if command -v bpftool &> /dev/null; then
-            BPFTOOL="bpftool"
-          fi
-          
-          # Method 2: versioned linux-tools path (Ubuntu runners)
-          if [ -z "$BPFTOOL" ]; then
-            KERNEL=$(uname -r)
-            VERSIONED="/usr/lib/linux-tools/${KERNEL}/bpftool"
-            if [ -f "$VERSIONED" ]; then
-              BPFTOOL="$VERSIONED"
+          for candidate in \
+            "/usr/lib/linux-tools/${KERNEL}/bpftool" \
+            $(find /usr/lib/linux-tools/ -name bpftool 2>/dev/null | head -1) \
+            "bpftool"; do
+            if [ -n "$candidate" ] && [ -x "$candidate" ] && "$candidate" version &>/dev/null; then
+              BPFTOOL="$candidate"
+              break
             fi
-          fi
+          done
           
-          # Method 3: install linux-tools-generic and try again
-          if [ -z "$BPFTOOL" ]; then
-            sudo apt-get install -y linux-tools-$(uname -r) linux-tools-generic 2>/dev/null || true
-            if command -v bpftool &> /dev/null; then
-              BPFTOOL="bpftool"
-            fi
-            # Check versioned path again
-            KERNEL=$(uname -r)
-            for path in /usr/lib/linux-tools/*/bpftool; do
-              if [ -f "$path" ]; then
-                BPFTOOL="$path"
-                break
-              fi
-            done
-          fi
-
           if [ -n "$BPFTOOL" ] && [ -f /sys/kernel/btf/vmlinux ]; then
             echo "Using bpftool at: $BPFTOOL"
-            $BPFTOOL btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
-            echo "Generated vmlinux.h from running kernel BTF"
+            "$BPFTOOL" btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
+            echo "Generated vmlinux.h from running kernel BTF ($(wc -l < bpf/vmlinux.h) lines)"
           else
-            echo "BTF not available via bpftool. Downloading prebuilt vmlinux.h..."
-            # Download a prebuilt vmlinux.h for a recent Ubuntu kernel
-            curl -sSL \
+            echo "bpftool not functional or no BTF. Downloading prebuilt vmlinux.h..."
+            # libbpf-bootstrap maintains a vmlinux.h compatible with kernel 5.8+
+            curl -sSLf \
               "https://raw.githubusercontent.com/libbpf/libbpf-bootstrap/master/vmlinux/vmlinux.h" \
-              -o bpf/vmlinux.h
-            echo "Downloaded prebuilt vmlinux.h"
+              -o bpf/vmlinux.h || {
+              echo "Download failed. Trying alternative source..."
+              curl -sSLf \
+                "https://raw.githubusercontent.com/iovisor/bcc/master/libbpf-tools/vmlinux/vmlinux_508.h" \
+                -o bpf/vmlinux.h
+            }
+            echo "Downloaded prebuilt vmlinux.h ($(wc -l < bpf/vmlinux.h) lines)"
           fi
           
-          # Verify vmlinux.h was generated
-          ls -la bpf/vmlinux.h
-          wc -l bpf/vmlinux.h
+          # Final verification
+          test -s bpf/vmlinux.h || { echo "ERROR: vmlinux.h is empty or missing"; exit 1; }
 
       - name: Install bpf2go
         run: go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
