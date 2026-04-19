@@ -1,17 +1,27 @@
-# gspy — forensic goroutine-to-syscall inspector for live Go processes
+﻿# gspy — forensic goroutine-to-syscall inspector for live Go processes
 
 [![License: GPL-2.0-only](https://img.shields.io/badge/License-GPL--2.0--only-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg)](https://go.dev)
 [![Kernel](https://img.shields.io/badge/Kernel-5.8+-yellow.svg)](https://kernel.org)
+[![Maintainability](https://img.shields.io/badge/maintainability-high-brightgreen.svg)]()
 
 **gspy** attaches to a running Go process by PID using eBPF uprobes and kernel tracepoints, reads goroutine state from thread-local storage via `process_vm_readv` (zero ptrace, zero process modification), and displays a live terminal map of goroutine ID → syscall → user-space stack frame. One command. No instrumentation. No process restart. No hash change.
 
-## Security Use Cases
+## Demo
+
+![gspy demo](https://raw.githubusercontent.com/Mutasem-mk4/gspy/master/demo/demo.gif)
+*(Generated using the script in `demo/`)*
+
+## Security & Forensic Use Cases
 
 - **Live forensic inspection** — Inspect Go processes without ptrace, binary modification, or hash alteration. Chain-of-custody preservation via `--readonly` mode with SHA-256 verification.
 - **Incident response** — When a Go process makes unexpected network calls, file writes, or privilege escalations, answer: *which goroutine made that syscall, and from which function?*
 - **Malware analysis** — Goroutine-level behavioral attribution in Go implants, backdoors, and C2 agents running in-situ on a compromised host.
 - **Red/blue team exercises** — Zero-footprint process inspection that doesn't trigger file integrity monitoring, modify `/proc/self/maps`, or require agent deployment.
+
+## Technical Deep Dive
+
+Read our blog post: [**Why Ptrace is Dead for Go Forensics: Catching Malware with eBPF**](docs/blog/why-ptrace-is-dead-for-go-forensics.md)
 
 ## How It Works
 
@@ -40,23 +50,19 @@ arm64 goid offsets are **unverified** — goroutine IDs may be incorrect. Other 
 - `CONFIG_DEBUG_INFO_BTF=y` recommended for CO-RE portability
 - `perf_event_paranoid` <= 2 recommended
 
-## Build from Source
+## Installation
 
+### From Source
 ```bash
 git clone https://github.com/mutasemkharma/gspy
 cd gspy
 make generate   # requires clang >= 14
 make build      # requires go >= 1.21
+sudo make install # installs to /usr/bin and /usr/share/man
 ```
 
-## Install
-
-```bash
-make install    # installs to /usr/bin and /usr/share/man
-```
-
-Or grant capabilities to avoid running as root:
-
+### Permissions
+Grant capabilities to avoid running as root:
 ```bash
 sudo setcap cap_bpf,cap_perfmon+ep $(which gspy)
 ```
@@ -75,94 +81,9 @@ gspy --version              # Show version block
 gspy --help                 # Show usage
 ```
 
-### Example: TUI Output
+## Contributing
 
-```
- gspy  pid:1234  binary:/usr/bin/myapp  go:go1.21.5     goroutines:47  attached:2m30s
- GID▼     STATE    SYSCALL        LATENCY    COUNT    FRAME
- 42       syscall  write          4.2ms      891      net/http.(*conn).serve
- 17       running  epoll_wait     12.1ms     2340     net.(*netFD).Read
- 88       syscall  futex          102.3ms    45       sync.(*Mutex).Lock
- 3        waiting  nanosleep      1.5s       12       time.Sleep
- 91       dead     -              -          7        main.worker
-
- q:quit  enter:expand  f:filter  s:sort  r:readonly  j:json-dump  ?:help
-```
-
-### Example: JSON Pipeline
-
-```bash
-# Find goroutines making network calls with latency > 1ms
-sudo gspy 1234 --json --filter net | jq 'select(.latency_us > 1000)'
-
-# Log all syscalls to file for later analysis
-sudo gspy 1234 --json --readonly > /evidence/gspy_$(date +%s).jsonl
-
-# Real-time alert on unexpected file writes
-sudo gspy 1234 --json --filter io | jq -r 'select(.syscall == "write") | .frame'
-```
-
-### Example: Forensic Mode
-
-```bash
-$ sudo gspy 1234 --readonly --filter net
-READONLY MODE: no writes to target process memory
-SHA-256(/usr/bin/suspicious): a3b4c5d6e7f8...
-# TUI shows [READONLY sha256:a3b4c5d6e7f8] in header
-```
-
-## Known Limitations
-
-- **arm64 GID offsets unverified** — Goroutine IDs on arm64 may be incorrect. Provide binaries with DWARF debug info for accurate offsets.
-- **Go generics** — Inlined generic functions may produce incorrect frame resolution in the symbol table.
-- **ASLR + stripped binaries** — Processes without DWARF info and with ASLR enabled may have partial frame resolution (hex addresses instead of function names).
-- **cgroupv1 namespaces** — Unsupported. Container-based targets using cgroupv1 may not work correctly.
-- **Kernel < 5.8** — Not supported. gspy exits immediately with exit code 2 and a clear error message.
-- **Non-Go processes** — gspy is specifically designed for Go processes. Attaching to non-Go processes will fail during Go version detection.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                    User Space                        │
-│                                                     │
-│  ┌─────────┐   ┌──────────┐   ┌─────────────────┐ │
-│  │ cmd/gspy│──▸│ attach   │──▸│ proc/reader     │ │
-│  │  main   │   │ PID/ELF  │   │ symbol resolve  │ │
-│  └────┬────┘   └──────────┘   └─────────────────┘ │
-│       │                                            │
-│  ┌────▼─────────────────────────────────────────┐  │
-│  │   ui/model.go (bubbletea)                     │  │
-│  │   ┌──────────┐  ┌──────────┐  ┌──────────┐  │  │
-│  │   │ view.go  │  │ table.go │  │ model.go │  │  │
-│  │   └──────────┘  └──────────┘  └──────────┘  │  │
-│  └────▲─────────────────────────────────────────┘  │
-│       │ SyscallEventMsg                            │
-│  ┌────┴────┐                                       │
-│  │ bpf/    │   ring buffer poll (100ms)            │
-│  │loader.go│◂─────────────────────────────────┐    │
-│  └─────────┘                                  │    │
-├───────────────────────────────────────────────┤    │
-│                    Kernel Space               │    │
-│                                               │    │
-│  ┌────────────────────────────────────────┐   │    │
-│  │  gspy.bpf.c (CO-RE, cilium/ebpf)      │   │    │
-│  │                                        │   │    │
-│  │  ┌─────────────┐  ┌─────────────────┐ │   │    │
-│  │  │ tracepoints │  │ uprobes         │ │   │    │
-│  │  │ sys_enter   │  │ runtime.execute │ │   │    │
-│  │  │ sys_exit    │  │ runtime.newproc1│ │   │    │
-│  │  └──────┬──────┘  │ runtime.goexit1 │ │   │    │
-│  │         │         └────────┬────────┘ │   │    │
-│  │         ▼                  ▼          │   │    │
-│  │  ┌──────────────────────────────────┐ │   │    │
-│  │  │         BPF Maps                 │ │   │    │
-│  │  │ gid_by_tid  goroutine_meta_map   │ │   │    │
-│  │  │ syscall_enter  events (ringbuf)──┼─┼───┘    │
-│  │  └──────────────────────────────────┘ │        │
-│  └────────────────────────────────────────┘        │
-└─────────────────────────────────────────────────────┘
-```
+We welcome contributions! Please see our [**Contributing Guide**](CONTRIBUTING.md) and [**Code of Conduct**](CODE_OF_CONDUCT.md).
 
 ## License
 
