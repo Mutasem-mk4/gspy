@@ -53,15 +53,8 @@ jobs:
             cd /tmp/bpftool/src && make -j$(nproc) && sudo make install prefix=/usr && cd -
           fi
 
-      - name: Generate vmlinux.h and BPF bindings
+      - name: Generate BPF bindings
         run: |
-          # Generate real vmlinux.h from kernel BTF
-          if [ -f /sys/kernel/btf/vmlinux ]; then
-            sudo bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
-            echo "✓ vmlinux.h generated ($(wc -l < bpf/vmlinux.h) lines)"
-          else
-            echo "ERROR: /sys/kernel/btf/vmlinux not found"; exit 1
-          fi
           go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
           export PATH=$PATH:$(go env GOPATH)/bin
           make generate
@@ -71,8 +64,7 @@ jobs:
           MISSING=$(grep -rL "SPDX-License-Identifier" \
             --include="*.go" --include="*.c" . \
             | grep -v vendor/ \
-            | grep -v '_bpfel.go' \
-            | grep -v '_bpfeb.go' || true)
+            | grep -vE 'internal/bpf/gspy_.*_bpf(el|eb)\.go' || true)
           if [ -n "$MISSING" ]; then
             echo "ERROR: Missing SPDX headers:"; echo "$MISSING"; exit 1
           fi
@@ -164,15 +156,6 @@ jobs:
             cd /tmp/bpftool/src && make -j$(nproc) && sudo make install prefix=/usr && cd -
           fi
 
-      - name: Generate vmlinux.h
-        run: |
-          if [ ! -f /sys/kernel/btf/vmlinux ]; then
-            echo "ERROR: /sys/kernel/btf/vmlinux not found"; exit 1
-          fi
-          sudo bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
-          grep -q "struct task_struct" bpf/vmlinux.h || { echo "ERROR: invalid vmlinux.h"; exit 1; }
-          echo "✓ vmlinux.h generated ($(wc -l < bpf/vmlinux.h) lines)"
-
       - name: Generate BPF and Build
         env:
           CGO_ENABLED: "0"
@@ -184,6 +167,7 @@ jobs:
           VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
           echo "Building with VERSION=${VERSION}"
           make build VERSION=${VERSION}
+
 
       - name: Verify binary
         run: |
