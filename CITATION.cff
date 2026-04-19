@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: gspy
+message: >-
+  If you use this software in your forensic investigations, threat hunting, or academic research, please cite it using the metadata from this file.
+type: software
+authors:
+  - given-names: Mutasem
+    family-names: Kharma
+    email: mutasem@gspy.dev
+repository-code: 'https://github.com/Mutasem-mk4/gspy'
+url: 'https://pkg.go.dev/github.com/Mutasem-mk4/gspy'
+abstract: >-
+  gspy is an advanced eBPF-driven Digital Forensics and Incident Response (DFIR) framework for live Golang malware analysis, threat hunting, and observability without utilizing ptrace().
+keywords:
+  - eBPF
+  - dfir
+  - golang
+  - forensics
+  - cybersecurity
+  - threat-hunting
+  - reverse-engineering
+license: GPL-2.0-only
+version: 0.2.0
+date-released: '2026-04-20'
