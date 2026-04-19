@@ -94,9 +94,10 @@ jobs:
             linux-tools-common \
             linux-tools-$(uname -r) || true
 
-          # Symlink clang to the versioned binary
+          # Symlink clang tools to the versioned binaries
           sudo ln -sf /usr/bin/clang-${{ env.CLANG_VERSION }} /usr/bin/clang
           sudo ln -sf /usr/bin/llc-${{ env.CLANG_VERSION }} /usr/bin/llc
+          sudo ln -sf /usr/bin/llvm-strip-${{ env.CLANG_VERSION }} /usr/bin/llvm-strip
 
           # Verify toolchain
           clang --version
