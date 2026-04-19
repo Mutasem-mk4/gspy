@@ -1,9 +1,9 @@
-﻿# gspy — forensic goroutine-to-syscall inspector for live Go processes
+# gspy — forensic goroutine-to-syscall inspector for live Go processes
 
 [![License: GPL-2.0-only](https://img.shields.io/badge/License-GPL--2.0--only-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg)](https://go.dev)
 [![Kernel](https://img.shields.io/badge/Kernel-5.8+-yellow.svg)](https://kernel.org)
-[![Maintainability](https://img.shields.io/badge/maintainability-high-brightgreen.svg)]()
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Mutasem-mk4/gspy/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Mutasem-mk4/gspy)
 
 **gspy** attaches to a running Go process by PID using eBPF uprobes and kernel tracepoints, reads goroutine state from thread-local storage via `process_vm_readv` (zero ptrace, zero process modification), and displays a live terminal map of goroutine ID → syscall → user-space stack frame. One command. No instrumentation. No process restart. No hash change.
 
