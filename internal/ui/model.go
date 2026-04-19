@@ -71,7 +71,7 @@ type Model struct {
 	pulse     bool // toggles every 500ms
 
 	// UI Feedback
-	flash    string      // temporary message in footer
+	flash      string      // temporary message in footer
 	flashTimer *time.Timer // to clear flash message
 
 	// Recent syscalls per goroutine (for expanded view)

@@ -22,7 +22,6 @@ var (
 	colDim    = lipgloss.Color("#5C6370") // Faint/Dead
 	colGreen  = lipgloss.Color("#A6E22E") // Running
 	colPurple = lipgloss.Color("#BD93F9") // Selection accent
-	colBg     = lipgloss.Color("#1A1B26") // Deep Slate base
 
 	// headerStyle: bold reverse for the header bar with Teal accent.
 	headerStyle = lipgloss.NewStyle().
@@ -112,11 +111,9 @@ func RenderHeader(width int, pid int, binary string, goVersion string,
 	left := fmt.Sprintf(" GSPY [%d]  %s  %s",
 		pid, truncate(binary, 25), goVersion)
 
-	indicator := " "
+	indicator := liveIndicatorStyle.Foreground(colDim).Render("●")
 	if pulse {
 		indicator = liveIndicatorStyle.Foreground(colGreen).Render("●")
-	} else {
-		indicator = liveIndicatorStyle.Foreground(colDim).Render("●")
 	}
 
 	right := fmt.Sprintf("G:%d  %s  %s LIVE ",

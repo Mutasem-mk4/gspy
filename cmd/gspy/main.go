@@ -44,10 +44,10 @@ var (
 
 // Exit codes.
 const (
-	exitOK           = 0
-	exitFatal        = 1
-	exitKernelOld    = 2
-	exitInterrupted  = 130
+	exitOK          = 0
+	exitFatal       = 1
+	exitKernelOld   = 2
+	exitInterrupted = 130
 )
 
 func main() {
