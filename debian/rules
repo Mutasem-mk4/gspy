@@ -15,15 +15,15 @@ override_dh_auto_configure:
 	@which bpf2go > /dev/null 2>&1 || \
 		(echo "ERROR: bpf2go not found in PATH." && \
 		 echo "Install golang-github-cilium-ebpf-dev or run:" && \
-		 echo "  go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0" && \
+		 echo "  go install github.com/cilium/ebpf/cmd/bpf2go@v0.17.1" && \
 		 exit 1)
 	dh_auto_configure
 
 override_dh_auto_build:
-	# Generate BPF bytecode first
+	# Generate BPF bytecode first (offline — no network access)
 	make generate
-	# Build the binary
-	make build VERSION=$(DEB_VERSION_UPSTREAM)
+	# Build the binary with DESTDIR-aware install
+	make build-only VERSION=$(DEB_VERSION_UPSTREAM)
 
 override_dh_auto_install:
 	install -D -m 0755 bin/gspy $(CURDIR)/debian/gspy/usr/bin/gspy

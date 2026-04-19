@@ -4,12 +4,28 @@ Upstream-Contact: Mutasem Kharma <mutasem@gspy.dev>
 Source: https://github.com/Mutasem-mk4/gspy
 
 Files: *
-Copyright: 2024 Mutasem Kharma <mutasem@gspy.dev>
+Copyright: 2024-2026 Mutasem Kharma <mutasem@gspy.dev>
 License: GPL-2.0-only
 
 Files: bpf/vmlinux.h
 Copyright: The Linux Kernel Authors
 License: GPL-2.0-only
+
+Files: go.sum
+Copyright: 2024-2026 Mutasem Kharma <mutasem@gspy.dev>
+License: GPL-2.0-only
+Comment: Auto-generated Go module checksums
+
+Files: vendor/*
+Copyright: Various upstream authors
+License: GPL-2.0-only or MIT or BSD-3-Clause or Apache-2.0
+Comment: Vendored Go dependencies with various open source licenses.
+ See individual files for specific license terms.
+ Key dependencies:
+  - github.com/cilium/ebpf: MIT
+  - github.com/charmbracelet/bubbletea: MIT
+  - github.com/charmbracelet/lipgloss: MIT
+  - golang.org/x/sys: BSD-3-Clause
 
 License: GPL-2.0-only
  This program is free software; you can redistribute it and/or modify

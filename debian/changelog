@@ -1,11 +1,15 @@
-gspy (0.2.0-1) unstable; urgency=medium
+gspy (0.2.0-1) unstable; urgency=low
 
   * Migrated to cilium/ebpf v0.21.0 API.
   * Added Go 1.24 ABI support for goroutine ID extraction.
   * Fixed go.mod module path to match GitHub repository URL.
   * Fixed debian/copyright Source URL.
+  * Fixed debian/control: Section to misc, Architecture to amd64.
+  * Added linux-libc-dev to Build-Depends.
   * Updated PKGBUILD for BlackArch compliance.
-  * Added CHANGELOG.md following Keep a Changelog format.
+  * Added CHANGELOG.md and CONTRIBUTING.md.
+  * Updated GitHub Actions to Node.js 24 compatible versions.
+  * Added test coverage reporting to CI.
 
  -- Mutasem Kharma <mutasem@gspy.dev>  Sun, 20 Apr 2026 00:00:00 +0000
 
@@ -21,9 +25,9 @@ gspy (0.1.1-1) unstable; urgency=low
   * Verified all source files contain SPDX-License-Identifier tags.
   * Relocated and modernized PKGBUILD for BlackArch compatibility.
 
- -- Mutasem Kharma <mutasem@gspy.dev>  Sun, 19 Apr 2026 10:55:00 +0000
+ -- Mutasem Kharma <mutasem@gspy.dev>  Sat, 19 Apr 2026 10:55:00 +0000
 
-gspy (0.1.0-1) unstable; urgency=medium
+gspy (0.1.0-1) unstable; urgency=low
 
   * Initial release.
   * eBPF-based forensic goroutine-to-syscall inspector for live Go processes.

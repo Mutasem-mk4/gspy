@@ -10,6 +10,7 @@
   [![Go Report Card](https://goreportcard.com/badge/github.com/Mutasem-mk4/gspy)](https://goreportcard.com/report/github.com/Mutasem-mk4/gspy)
   [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Mutasem-mk4/gspy/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Mutasem-mk4/gspy)
   [![CI](https://github.com/Mutasem-mk4/gspy/actions/workflows/build.yml/badge.svg)](https://github.com/Mutasem-mk4/gspy/actions/workflows/build.yml)
+  [![Coverage](https://img.shields.io/badge/coverage-check%20CI-brightgreen)](https://github.com/Mutasem-mk4/gspy/actions/workflows/build.yml)
 </div>
 
 <br>

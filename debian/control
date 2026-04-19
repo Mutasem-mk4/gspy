@@ -1,20 +1,21 @@
 Source: gspy
-Section: admin
+Section: misc
 Priority: optional
 Maintainer: Mutasem Kharma <mutasem@gspy.dev>
 Build-Depends: debhelper-compat (= 13),
-               golang-go (>= 1.21),
+               golang-go (>= 2:1.21~),
                golang-github-cilium-ebpf-dev (>= 0.14),
                clang (>= 14),
                llvm (>= 14),
                libbpf-dev,
-               libelf-dev
+               libelf-dev,
+               linux-libc-dev
 Standards-Version: 4.6.2
 Homepage: https://github.com/Mutasem-mk4/gspy
 Rules-Requires-Root: no
 
 Package: gspy
-Architecture: any
+Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: forensic goroutine-to-syscall inspector for Go processes
  gspy attaches to a running Go process by PID using eBPF uprobes and

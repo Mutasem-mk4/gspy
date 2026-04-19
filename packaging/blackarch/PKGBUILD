@@ -4,14 +4,14 @@ pkgname=gspy
 pkgver=0.2.0
 pkgrel=1
 pkgdesc="Forensic goroutine-to-syscall inspector for live Go processes using eBPF."
-arch=('x86_64' 'aarch64')
+arch=('x86_64')
 url="https://github.com/Mutasem-mk4/gspy"
-license=('GPL-2.0-only')
-groups=('blackarch' 'blackarch-forensic' 'blackarch-debugger')
+license=('GPL2')
+groups=('blackarch' 'blackarch-forensic')
 depends=('glibc')
 makedepends=('go>=1.21' 'clang>=14' 'llvm>=14' 'libbpf' 'bpf')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('a9202eac2dce840d37c65a198bfb0f4d90cd4a06e8aefa543dbf6759c842bb72')
 
 prepare() {
     cd "$pkgname-$pkgver"
@@ -28,7 +28,7 @@ build() {
     export GOFLAGS="-mod=mod"
 
     make generate
-    make build VERSION=$pkgver
+    make build-only VERSION=$pkgver
 }
 
 check() {
