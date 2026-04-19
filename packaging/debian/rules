@@ -1,0 +1,25 @@
+#!/usr/bin/make -f
+
+# SPDX-License-Identifier: GPL-2.0-only
+# export DH_VERBOSE = 1
+
+%:
+	dh $@ --buildsystem=none
+
+override_dh_auto_build:
+	# Ensure bpf2go is available
+	go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
+	export PATH=$(shell go env GOPATH)/bin:$(PATH); \
+	make generate
+	export PATH=$(shell go env GOPATH)/bin:$(PATH); \
+	make build VERSION=$(DEB_VERSION_UPSTREAM)
+
+override_dh_auto_install:
+	mkdir -p debian/gspy/usr/bin
+	mkdir -p debian/gspy/usr/share/man/man1
+	install -m 0755 bin/gspy debian/gspy/usr/bin/gspy
+	install -m 0644 man/gspy.1 debian/gspy/usr/share/man/man1/gspy.1
+
+override_dh_auto_clean:
+	make clean
+	rm -rf bin/

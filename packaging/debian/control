@@ -1,0 +1,27 @@
+Source: gspy
+Section: forensics
+Priority: optional
+Maintainer: Mutasem Kharma <mutasem@gspy.dev>
+Build-Depends: debhelper-compat (= 13), 
+               golang-go (>= 1.21), 
+               clang (>= 14), 
+               llvm (>= 14), 
+               libbpf-dev, 
+               linux-libc-dev,
+               bpftool
+Standards-Version: 4.6.2
+Homepage: https://github.com/Mutasem-mk4/gspy
+Rules-Requires-Root: no
+
+Package: gspy
+Architecture: amd64 arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Forensic goroutine-to-syscall inspector for live Go processes
+ gspy is a security tool designed for forensics and live malware analysis
+ of Go-based binaries. It uses eBPF to hook into the Go runtime and track
+ the relationship between internal goroutines and kernel syscalls.
+ .
+ Key features:
+  - Zero ptrace(ATTACH) overhead.
+  - Multi-architecture support (x86_64, ARM64).
+  - Live filtering by networking, I/O, and syscall type.

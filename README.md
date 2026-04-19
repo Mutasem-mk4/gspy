@@ -63,6 +63,19 @@ graph TD
 
 For a deeper dive into the engineering, read: [**Why Ptrace is Dead for Go Forensics**](docs/blog/why-ptrace-is-dead-for-go-forensics.md)
 
+## 🚀 Quick Start (Demo)
+
+See `gspy` in action without manual setup:
+
+```bash
+# Clone and run the automated demo
+git clone https://github.com/Mutasem-mk4/gspy
+cd gspy
+./demo/demo.sh
+```
+
+This will build `gspy`, launch a "suspicious" target process in the background, and attach to it immediately.
+
 ## 📋 Compatibility Matrix
 
 gspy rigidly tracks the internal Application Binary Interface (ABI) of the Go compiler.

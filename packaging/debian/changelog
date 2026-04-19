@@ -1,0 +1,8 @@
+gspy (0.2.0-1) unstable; urgency=low
+
+  * Initial release for Kali and Parrot OS.
+  * Added multi-architecture support (x86_64, ARM64).
+  * Removed host-dependent BTF generation for more reliable packaging.
+  * Professionalized documentation and metadata.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Sun, 19 Apr 2026 22:28:00 +0300
