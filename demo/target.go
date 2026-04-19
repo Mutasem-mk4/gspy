@@ -1,4 +1,5 @@
-﻿package main
+// SPDX-License-Identifier: GPL-2.0-only
+package main
 
 import (
 	"fmt"
