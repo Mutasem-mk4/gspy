@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Mutasem-mk4/gspy/internal/bpf"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/Mutasem-mk4/gspy/internal/bpf"
 )
 
 // ---------------------------------------------------------------------------

@@ -29,11 +29,11 @@ import (
 	"syscall"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/Mutasem-mk4/gspy/internal/attach"
 	"github.com/Mutasem-mk4/gspy/internal/bpf"
 	"github.com/Mutasem-mk4/gspy/internal/proc"
 	"github.com/Mutasem-mk4/gspy/internal/ui"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Build-time variables set via -ldflags.
