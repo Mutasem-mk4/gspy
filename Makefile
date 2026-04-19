@@ -40,9 +40,9 @@ generate:
 	GOFLAGS=-mod=mod go generate ./internal/bpf/...
 
 # Build the gspy binary.
-# Uses -trimpath for reproducible builds (required for distro packaging).
-build: generate
-	go build -trimpath -ldflags="$(LDFLAGS)" -o bin/gspy ./cmd/gspy
+# Architectures supported: amd64, arm64 (set via GOARCH)
+build:
+	GOOS=linux GOARCH=$(GOARCH) go build -trimpath -ldflags="$(LDFLAGS)" -o bin/gspy ./cmd/gspy
 
 # Build without generating BPF (for CI/testing when generated files exist).
 build-only:
