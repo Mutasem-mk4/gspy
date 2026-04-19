@@ -148,7 +148,7 @@ func RenderHeader(width int, pid int, binary string, goVersion string,
 func RenderEmptyState(width, height int) string {
 	msg := " Scanning for active goroutines... \n (Check if the process is a Go binary) "
 	styled := columnHeaderStyle.Padding(1, 2).Render(msg)
-	
+
 	lines := strings.Split(styled, "\n")
 	var b strings.Builder
 	// Center vertically
