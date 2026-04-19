@@ -1,6 +1,6 @@
 module github.com/mutasemkharma/gspy
 
-go 1.24.0
+go 1.21
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
