@@ -14,7 +14,7 @@ To ensure `gspy` reaches the maximum audiencce in the security and developer com
 >
 > `gspy` elegantly solves this. It attaches via eBPF uprobes directly to the Go runtime's scheduler (`runtime.execute`). Every time a goroutine context switches, `gspy` maps the active OS Thread ID to the Goroutine ID. When a syscall fires, we immediately know *which specific goroutine* made it.
 >
-> **Best part:** It uses `process_vm_readv` to read thread-local storage securely. It does 0 writes to the target memory, never modifies the binary, and never triggers an `execve` restart. You can attach to a production process completely invisibly.
+> **Best part:** It uses `process_vm_readv` to read thread-local storage securely. It does 0 writes to the target memory, never modifies the binary, and never triggers an `execve` restart (Zero `ptrace(ATTACH)` pause overhead). You can attach to a production process completely invisibly, though standard Yama/SELinux rules apply for reading.
 >
 > Would love to hear feedback from SREs and security engineers!
 

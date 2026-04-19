@@ -104,6 +104,27 @@ jobs:
         run: go test -v -race -cover -tags=testing ./...
 
   # ─────────────────────────────────────────────────────────
+  # Job 2b: ABI Test — ensure Go versions don't break struct offsets
+  # ─────────────────────────────────────────────────────────
+  abi-test:
+    name: ABI Tests (${{ matrix.go-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.21', '1.22', '1.23']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Test ABI logic
+        run: go test -v -tags=testing ./internal/attach/...
+
+  # ─────────────────────────────────────────────────────────
   # Job 3: Build — generate BPF and compile binary
   # ─────────────────────────────────────────────────────────
   build-linux:

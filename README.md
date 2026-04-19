@@ -5,7 +5,7 @@
 [![Kernel](https://img.shields.io/badge/Kernel-5.8+-yellow.svg)](https://kernel.org)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Mutasem-mk4/gspy/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Mutasem-mk4/gspy)
 
-**gspy** attaches to a running Go process by PID using eBPF uprobes and kernel tracepoints, reads goroutine state from thread-local storage via `process_vm_readv` (zero ptrace, zero process modification), and displays a live terminal map of goroutine ID → syscall → user-space stack frame. One command. No instrumentation. No process restart. No hash change.
+**gspy** attaches to a running Go process by PID using eBPF uprobes and kernel tracepoints, reads goroutine state from thread-local storage via `process_vm_readv` (zero `ptrace` pause overhead, zero process modification), and displays a live terminal map of goroutine ID → syscall → user-space stack frame. One command. No instrumentation. No process restart. No hash change.
 
 ## Demo
 

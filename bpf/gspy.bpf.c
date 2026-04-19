@@ -241,14 +241,16 @@ int uprobe_runtime_execute(struct pt_regs *ctx)
 
 	// Go ABIInternal (1.17+ amd64): first argument (gp *g) is in RAX.
 	//
-	// We cannot use PT_REGS_PARM1 (which reads rdi for C ABI). Go's
-	// internal ABI passes the first argument in rax. Use BPF_CORE_READ
-	// for CO-RE safe access to the register.
-	//
-	// On amd64, struct pt_regs has:
-	//   unsigned long ax;  // at some offset depending on kernel version
-	// BPF_CORE_READ handles the offset relocation automatically.
+	// We cannot use PT_REGS_PARM1 (which reads rdi for C ABI/arm64 C ABI). Go's
+	// internal ABI passes the first argument in rax (amd64) or x0 (arm64). Use
+	// BPF_CORE_READ for CO-RE safe access to the registers.
+#if defined(__TARGET_ARCH_x86)
 	__u64 gp_ptr = BPF_CORE_READ(ctx, ax);
+#elif defined(__TARGET_ARCH_arm64)
+	__u64 gp_ptr = BPF_CORE_READ(ctx, regs[0]);
+#else
+	__u64 gp_ptr = 0;
+#endif
 
 	if (gp_ptr == 0)
 		return 0;

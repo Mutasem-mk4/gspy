@@ -62,7 +62,8 @@ enum bpf_map_type {
 /* BPF get_stack flags */
 #define BPF_F_USER_STACK (1ULL << 8)
 
-/* x86_64 pt_regs — register state at uprobe entry */
+#if defined(__TARGET_ARCH_x86)
+/* x86_64 pt_regs - register state at uprobe entry */
 struct pt_regs {
 	unsigned long r15, r14, r13, r12;
 	unsigned long bp;
@@ -74,6 +75,15 @@ struct pt_regs {
 	unsigned long flags;
 	unsigned long sp, ss;
 };
+#elif defined(__TARGET_ARCH_arm64)
+/* arm64 pt_regs - register state at uprobe entry */
+struct pt_regs {
+	unsigned long regs[31];
+	unsigned long sp;
+	unsigned long pc;
+	unsigned long pstate;
+};
+#endif
 
 /* Networking structs referenced by bpf_helper_defs.h */
 struct __sk_buff { int len; };
