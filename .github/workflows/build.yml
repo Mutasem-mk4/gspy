@@ -14,8 +14,9 @@ permissions:
   contents: write
 
 env:
-  GO_VERSION: 1.21
-  CLANG_VERSION: 16
+  GO_VERSION: "1.21"
+  CLANG_VERSION: "16"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # ─────────────────────────────────────────────────────────
@@ -34,22 +35,51 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install BPF toolchain and Generate
+      - name: Install BPF toolchain
         run: |
-          sudo apt-get update && sudo apt-get install -y clang-${{ env.CLANG_VERSION }} llvm-${{ env.CLANG_VERSION }} libbpf-dev libelf-dev
+          sudo apt-get update && sudo apt-get install -y \
+            clang-${{ env.CLANG_VERSION }} \
+            llvm-${{ env.CLANG_VERSION }} \
+            libbpf-dev libelf-dev
           sudo ln -sf /usr/bin/clang-${{ env.CLANG_VERSION }} /usr/bin/clang
           sudo ln -sf /usr/bin/llvm-strip-${{ env.CLANG_VERSION }} /usr/bin/llvm-strip
+          # Install bpftool — try kernel-specific, then build from source
+          sudo apt-get install -y linux-tools-$(uname -r) 2>/dev/null || \
+            sudo apt-get install -y linux-tools-azure 2>/dev/null || true
+          if ! sudo bpftool version 2>/dev/null; then
+            sudo apt-get install -y git pkg-config
+            git clone --depth 1 --recurse-submodules \
+              https://github.com/libbpf/bpftool.git /tmp/bpftool
+            cd /tmp/bpftool/src && make -j$(nproc) && sudo make install prefix=/usr && cd -
+          fi
+
+      - name: Generate vmlinux.h and BPF bindings
+        run: |
+          # Generate real vmlinux.h from kernel BTF
+          if [ -f /sys/kernel/btf/vmlinux ]; then
+            sudo bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
+            echo "✓ vmlinux.h generated ($(wc -l < bpf/vmlinux.h) lines)"
+          else
+            echo "ERROR: /sys/kernel/btf/vmlinux not found"; exit 1
+          fi
           go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
           export PATH=$PATH:$(go env GOPATH)/bin
           make generate
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y libbpf-dev libelf-dev
+      - name: Check SPDX headers
+        run: |
+          MISSING=$(grep -rL "SPDX-License-Identifier" \
+            --include="*.go" --include="*.c" . | grep -v vendor/ || true)
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: Missing SPDX headers:"; echo "$MISSING"; exit 1
+          fi
+          echo "✓ All source files have SPDX headers"
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.54
+          version: v1.59.1
+          args: --timeout=5m --build-tags=testing
 
   # ─────────────────────────────────────────────────────────
   # Job 2: Test — run unit tests with mock BPF
@@ -68,7 +98,6 @@ jobs:
           cache: true
 
       - name: Run tests with race detector
-        # -tags=testing ensures we use mock.go instead of loader.go
         run: go test -v -race -cover -tags=testing ./...
 
   # ─────────────────────────────────────────────────────────
@@ -97,35 +126,53 @@ jobs:
             clang-${{ env.CLANG_VERSION }} \
             llvm-${{ env.CLANG_VERSION }} \
             libelf-dev \
-            libbpf-dev \
-            linux-tools-common \
-            linux-tools-generic \
-            linux-tools-$(uname -r) || true
-
-          # Symlink clang tools to versioned binaries for bpf2go
+            libbpf-dev
           sudo ln -sf /usr/bin/clang-${{ env.CLANG_VERSION }} /usr/bin/clang
           sudo ln -sf /usr/bin/llc-${{ env.CLANG_VERSION }} /usr/bin/llc
           sudo ln -sf /usr/bin/llvm-strip-${{ env.CLANG_VERSION }} /usr/bin/llvm-strip
+          # Install bpftool
+          sudo apt-get install -y linux-tools-$(uname -r) 2>/dev/null || \
+            sudo apt-get install -y linux-tools-azure 2>/dev/null || true
+          if ! sudo bpftool version 2>/dev/null; then
+            sudo apt-get install -y git pkg-config
+            git clone --depth 1 --recurse-submodules \
+              https://github.com/libbpf/bpftool.git /tmp/bpftool
+            cd /tmp/bpftool/src && make -j$(nproc) && sudo make install prefix=/usr && cd -
+          fi
+
+      - name: Generate vmlinux.h
+        run: |
+          if [ ! -f /sys/kernel/btf/vmlinux ]; then
+            echo "ERROR: /sys/kernel/btf/vmlinux not found"; exit 1
+          fi
+          sudo bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
+          grep -q "struct task_struct" bpf/vmlinux.h || { echo "ERROR: invalid vmlinux.h"; exit 1; }
+          echo "✓ vmlinux.h generated ($(wc -l < bpf/vmlinux.h) lines)"
 
       - name: Generate BPF and Build
         env:
-          CGO_ENABLED: 0
+          CGO_ENABLED: "0"
         run: |
-          # Install bpf2go
           go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
-          
-          # Use local GOPATH/bin for tools
           export PATH=$PATH:$(go env GOPATH)/bin
-          
-          # Generate & Build via Makefile
-          # This handles BPF compilation and Go build in one pass
-          make build VERSION=${{ github.ref_name }}
+
+          # FIX BUG 1: Use git describe for proper version string
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          echo "Building with VERSION=${VERSION}"
+          make build VERSION=${VERSION}
 
       - name: Verify binary
         run: |
           ls -la bin/gspy
           file bin/gspy
-          bin/gspy --version || true
+          # FIX BUG 2: NO || true — if any of these fail, the build fails
+          bin/gspy --version
+          bin/gspy --help
+          # Smoke test: binary must reject invalid input
+          ! bin/gspy notapid 2>/dev/null
+
+      - name: Verify man page exists
+        run: test -s man/gspy.1 || { echo "ERROR: man/gspy.1 is missing or empty"; exit 1; }
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
@@ -135,12 +182,111 @@ jobs:
           retention-days: 30
 
   # ─────────────────────────────────────────────────────────
-  # Job 4: Release — create GitHub release on tag push
+  # Job 4: Integration test — real BPF against real process
+  # ─────────────────────────────────────────────────────────
+  integration:
+    name: Integration test (real BPF)
+    runs-on: ubuntu-latest
+    needs: [build-linux]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: gspy-linux-amd64
+          path: bin/
+
+      - name: Build test target process
+        run: |
+          chmod +x bin/gspy
+          cat > /tmp/testproc.go << 'TESTEOF'
+          package main
+
+          import (
+            "net/http"
+            "time"
+          )
+
+          func main() {
+            go func() {
+              for {
+                http.Get("http://127.0.0.1:19999")
+                time.Sleep(100 * time.Millisecond)
+              }
+            }()
+            select {}
+          }
+          TESTEOF
+          go build -o /tmp/gspy-testproc /tmp/testproc.go
+
+      - name: Run integration test
+        run: |
+          set -euo pipefail
+
+          # Start the test target process
+          /tmp/gspy-testproc &
+          TESTPID=$!
+          echo "Test target PID: $TESTPID"
+          sleep 2
+
+          # Verify test process is running
+          kill -0 $TESTPID || { echo "ERROR: test process not running"; exit 1; }
+
+          # Run gspy in JSON mode for 5 seconds
+          sudo timeout 5 ./bin/gspy $TESTPID --json > /tmp/gspy-out.json 2>/tmp/gspy-err.txt || true
+
+          # Kill the test process
+          kill $TESTPID 2>/dev/null || true
+
+          # Print output for debugging
+          echo "=== gspy stdout ==="
+          head -20 /tmp/gspy-out.json || true
+          echo "=== gspy stderr ==="
+          cat /tmp/gspy-err.txt || true
+
+          # Validate: output must exist and be non-empty
+          if [ ! -s /tmp/gspy-out.json ]; then
+            echo "FAIL: gspy produced no JSON output"
+            exit 1
+          fi
+
+          # At least one valid JSON line must exist with gid > 0
+          python3 -c "
+          import json, sys
+          events = []
+          with open('/tmp/gspy-out.json') as f:
+            for line in f:
+              line = line.strip()
+              if line:
+                try:
+                  events.append(json.loads(line))
+                except:
+                  pass
+          if not events:
+            print('FAIL: no parseable JSON events')
+            sys.exit(1)
+          valid = [e for e in events if e.get('gid', 0) > 0]
+          if not valid:
+            print(f'FAIL: no events with gid > 0. Got {len(events)} events total.')
+            sys.exit(1)
+          print(f'PASS: {len(valid)} events with valid GID out of {len(events)} total')
+          "
+
+  # ─────────────────────────────────────────────────────────
+  # Job 5: Release — create GitHub release on tag push
   # ─────────────────────────────────────────────────────────
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [build-linux, lint]
+    needs: [build-linux, lint, integration]
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
@@ -151,13 +297,17 @@ jobs:
           name: gspy-linux-amd64
           path: release/
 
-      - name: Compress binary
+      - name: Prepare release artifacts
         run: |
           cd release
           chmod +x gspy
           tar czf gspy-linux-amd64.tar.gz gspy
           sha256sum gspy-linux-amd64.tar.gz > SHA256SUMS.txt
           sha256sum gspy >> SHA256SUMS.txt
+
+      # FIX BUG 3: Compress and include man page in release
+      - name: Compress man page
+        run: gzip -k man/gspy.1
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -168,3 +318,4 @@ jobs:
           files: |
             release/gspy-linux-amd64.tar.gz
             release/SHA256SUMS.txt
+            man/gspy.1.gz

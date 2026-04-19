@@ -27,12 +27,16 @@ LDFLAGS = -s -w \
 	-X main.BuildGoVersion=$(GO_VERSION)
 
 # Generate BPF bytecode from C source using bpf2go.
-# Requires: clang >= 14, go >= 1.21
+# Requires: clang >= 14, go >= 1.21, bpf2go
 # Produces: internal/bpf/gspy_bpfel.go, internal/bpf/gspy_bpfel.o
 # NOTE: GOFLAGS=-mod=mod is required because bpf2go is a build tool,
 # not vendored as a runtime dependency. When vendor/ exists, Go defaults
 # to -mod=vendor which blocks module resolution for tools.
 generate:
+	@which bpf2go > /dev/null 2>&1 || \
+		(echo "ERROR: bpf2go not found in PATH." && \
+		 echo "Install it with: go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0" && \
+		 exit 1)
 	GOFLAGS=-mod=mod go generate ./internal/bpf/...
 
 # Build the gspy binary.

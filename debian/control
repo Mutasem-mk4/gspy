@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: Mutasem Kharma <mutasem@gspy.dev>
 Build-Depends: debhelper-compat (= 13),
                golang-go (>= 1.21),
+               golang-github-cilium-ebpf-dev (>= 0.14),
                clang (>= 14),
                llvm (>= 14),
                libbpf-dev,
@@ -15,14 +16,18 @@ Rules-Requires-Root: no
 Package: gspy
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Forensic goroutine-to-syscall inspector for Go processes
- gspy attaches to a running Go process by PID using eBPF uprobes and 
- kernel tracepoints. It maps goroutine IDs to active syscalls and 
- user-space stack frames in real-time, without ptrace or instrumentation.
+Description: forensic goroutine-to-syscall inspector for Go processes
+ gspy attaches to a running Go process by PID using eBPF uprobes and
+ kernel tracepoints, mapping goroutine IDs to active kernel syscalls
+ and user-space stack frames in real time.
  .
- Key features:
-  * Zero-footprint forensic inspection.
-  * Real-time GID -> Syscall mapping.
-  * User-space stack frame resolution via ELF symbol table.
-  * Forensic readonly mode with SHA-256 binary verification.
-  * Low overhead eBPF-based polling.
+ No ptrace, no instrumentation, no process restart, and no modification
+ of the target binary's memory or file hash is required. Goroutine IDs
+ are extracted via thread-local storage using process_vm_readv(2).
+ .
+ Features include forensic readonly mode with SHA-256 binary attestation,
+ JSON output for pipeline integration, and a live terminal UI.
+ .
+ Requires Linux kernel 5.8 or later with BPF syscall support enabled
+ (CONFIG_BPF_SYSCALL=y) and either CAP_BPF + CAP_PERFMON or
+ CAP_SYS_ADMIN.

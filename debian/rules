@@ -9,8 +9,14 @@ export PATH := $(GOPATH)/bin:$(PATH)
 	dh $@ --buildsystem=golang --builddirectory=obj-$(DEB_BUILD_GNU_TYPE)
 
 override_dh_auto_configure:
-	# Install bpf2go for generation
-	go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
+	# bpf2go must be available from Build-Depends or pre-installed.
+	# Debian policy PROHIBITS network access during builds.
+	# Package: golang-github-cilium-ebpf-dev provides bpf2go.
+	@which bpf2go > /dev/null 2>&1 || \
+		(echo "ERROR: bpf2go not found in PATH." && \
+		 echo "Install golang-github-cilium-ebpf-dev or run:" && \
+		 echo "  go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0" && \
+		 exit 1)
 	dh_auto_configure
 
 override_dh_auto_build:

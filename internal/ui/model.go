@@ -37,6 +37,9 @@ type ProcessExitedMsg struct{}
 // ErrorMsg carries a fatal error to the TUI.
 type ErrorMsg struct{ Err error }
 
+// clearFlashMsg clears the flash message after the timeout.
+type clearFlashMsg struct{}
+
 // ---------------------------------------------------------------------------
 // Model — bubbletea Model implementation
 // ---------------------------------------------------------------------------
@@ -71,8 +74,7 @@ type Model struct {
 	pulse     bool // toggles every 500ms
 
 	// UI Feedback
-	flash      string      // temporary message in footer
-	flashTimer *time.Timer // to clear flash message
+	flash string // temporary message in footer
 
 	// Recent syscalls per goroutine (for expanded view)
 	// Keyed by GID, stores last 20 syscalls.
@@ -154,11 +156,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case FlashMsg:
 		m.flash = string(msg)
-		if m.flashTimer != nil {
-			m.flashTimer.Stop()
-		}
-		// In a real TUI we'd use a tea.Cmd to clear it, but for simplicity
-		// we'll just keep it until the next user action or keep it briefly.
+		return m, tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
+			return clearFlashMsg{}
+		})
+
+	case clearFlashMsg:
+		m.flash = ""
 		return m, nil
 
 	case JsonSnapshotMsg:
@@ -238,7 +241,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.flash = fmt.Sprintf("Snapshot saved: %s", filename)
 		}
-		return m, nil
+		return m, tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
+			return clearFlashMsg{}
+		})
 
 	case "?":
 		// Toggle help overlay — for now just cycle filter as feedback
