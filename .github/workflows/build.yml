@@ -172,7 +172,8 @@ jobs:
           ! bin/gspy notapid 2>/dev/null
 
       - name: Verify man page exists
-        run: test -s man/gspy.1 || { echo "ERROR: man/gspy.1 is missing or empty"; exit 1; }
+        run: |
+          test -s man/gspy.1 || { echo "ERROR: man/gspy.1 is missing or empty"; exit 1; }
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
