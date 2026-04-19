@@ -333,13 +333,13 @@ func (m *Model) renderTable() string {
 		m.config.GoVersion, m.table.GoroutineCount(), uptime,
 		m.table.Filter, m.config.Readonly, m.config.SHA256, m.pulse)
 	_, _ = b.WriteString(header)
-	_, _ = _, _ = b.WriteString("\n")
+	_, _ = b.WriteString("\n")
 
 	// Column headers with sort indicator
 	sortCol, sortInd := m.table.SortColumnName()
 	colHeaders := RenderColumnHeaders(m.width, sortCol, sortInd)
 	_, _ = b.WriteString(colHeaders)
-	_, _ = _, _ = b.WriteString("\n")
+	_, _ = b.WriteString("\n")
 
 	// Table rows
 	visibleRows := m.table.VisibleSlice()
@@ -366,7 +366,7 @@ func (m *Model) renderTable() string {
 	// Pad remaining rows
 	for rowsRendered < maxRows {
 		_, _ = b.WriteString(strings.Repeat(" ", m.width))
-		_, _ = _, _ = b.WriteString("\n")
+		_, _ = b.WriteString("\n")
 		rowsRendered++
 	}
 
