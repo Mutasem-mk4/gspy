@@ -1,4 +1,4 @@
-module github.com/mutasemkharma/gspy
+module github.com/Mutasem-mk4/gspy
 
 go 1.21
 

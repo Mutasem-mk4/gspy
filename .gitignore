@@ -27,3 +27,5 @@ Thumbs.db
 # Temporary files
 scratch/
 tmp/
+awesome-go-readme.md
+awesome_go_*.md

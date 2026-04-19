@@ -14,7 +14,7 @@
 #   make test       # run tests (no root required)
 #   make install    # install to /usr/bin and /usr/share/man
 
-.PHONY: generate build install clean lint test man
+.PHONY: generate build install uninstall clean lint test man
 
 # Version info
 VERSION    ?= 0.2.0
@@ -53,6 +53,11 @@ build-only:
 install: build
 	install -Dm 0755 bin/gspy $(DESTDIR)/usr/bin/gspy
 	install -Dm 0644 man/gspy.1 $(DESTDIR)/usr/share/man/man1/gspy.1
+
+# Uninstall gspy binary and man page from system paths.
+uninstall:
+	rm -f $(DESTDIR)/usr/bin/gspy
+	rm -f $(DESTDIR)/usr/share/man/man1/gspy.1
 
 # Clean build artifacts and generated files.
 clean:

@@ -1,20 +1,22 @@
 pkgbase = gspy
-	pkgdesc = Forensic goroutine-to-syscall inspector for live Go processes
-	pkgver = 0.1.1
+	pkgdesc = Forensic goroutine-to-syscall inspector for live Go processes using eBPF.
+	pkgver = 0.2.0
 	pkgrel = 1
 	url = https://github.com/Mutasem-mk4/gspy
 	arch = x86_64
+	arch = aarch64
 	groups = blackarch
 	groups = blackarch-forensic
 	groups = blackarch-debugger
-	license = GPL2
+	license = GPL-2.0-only
 	makedepends = go>=1.21
 	makedepends = clang>=14
 	makedepends = llvm>=14
 	makedepends = libbpf
+	makedepends = bpf
 	makedepends = linux-api-headers
 	depends = glibc
-	source = gspy-0.1.1.tar.gz::https://github.com/Mutasem-mk4/gspy/archive/refs/tags/v0.1.1.tar.gz
+	source = gspy-0.2.0.tar.gz::https://github.com/Mutasem-mk4/gspy/archive/refs/tags/v0.2.0.tar.gz
 	sha256sums = SKIP
 
 pkgname = gspy

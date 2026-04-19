@@ -1,13 +1,13 @@
-# gspy Submission Metadata (v0.1.0)
+# gspy Submission Metadata (v0.2.0)
 
 This document contains the standardized metadata for submitting `gspy` to security distributions.
 
 ## 🏺 General Metadata
 - **Project Name**: gspy
 - **Tagline**: Forensic goroutine-to-syscall inspector for live Go processes.
-- **Repository**: https://github.com/mutasem_mk4/gspy
+- **Repository**: https://github.com/Mutasem-mk4/gspy
 - **License**: GPL-2.0-only
-- **Version**: 0.1.0
+- **Version**: 0.2.0
 - **Supported OS**: Linux (Kernel 5.8+)
 - **Architecture**: amd64 (verified)
 
@@ -25,7 +25,7 @@ It bridges the gap between high-level Go runtime state and kernel-level syscall 
 
 **Technical Details:**
 - **Language**: Go/C (eBPF)
-- **Source**: https://github.com/mutasem_mk4/gspy/archive/v0.1.0.tar.gz
+- **Source**: https://github.com/Mutasem-mk4/gspy/archive/v0.2.0.tar.gz
 - **Dependencies**: `clang`, `llvm`, `libbpf`, `libelf`
 - **Installation**: `make build` (static binary)
 

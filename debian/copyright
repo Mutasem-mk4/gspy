@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: gspy
 Upstream-Contact: Mutasem Kharma <mutasem@gspy.dev>
-Source: https://github.com/mutasem_mk4/gspy
+Source: https://github.com/Mutasem-mk4/gspy
 
 Files: *
 Copyright: 2024 Mutasem Kharma <mutasem@gspy.dev>

@@ -30,10 +30,10 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mutasemkharma/gspy/internal/attach"
-	"github.com/mutasemkharma/gspy/internal/bpf"
-	"github.com/mutasemkharma/gspy/internal/proc"
-	"github.com/mutasemkharma/gspy/internal/ui"
+	"github.com/Mutasem-mk4/gspy/internal/attach"
+	"github.com/Mutasem-mk4/gspy/internal/bpf"
+	"github.com/Mutasem-mk4/gspy/internal/proc"
+	"github.com/Mutasem-mk4/gspy/internal/ui"
 )
 
 // Build-time variables set via -ldflags.

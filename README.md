@@ -6,8 +6,10 @@
   [![License: GPL-2.0-only](https://img.shields.io/badge/License-GPL--2.0--only-blue.svg)](LICENSE)
   [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg?logo=go)](https://go.dev)
   [![Kernel](https://img.shields.io/badge/Kernel-5.8+-yellow.svg?logo=linux)](https://kernel.org)
+  [![Go Reference](https://pkg.go.dev/badge/github.com/Mutasem-mk4/gspy.svg)](https://pkg.go.dev/github.com/Mutasem-mk4/gspy)
+  [![Go Report Card](https://goreportcard.com/badge/github.com/Mutasem-mk4/gspy)](https://goreportcard.com/report/github.com/Mutasem-mk4/gspy)
   [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Mutasem-mk4/gspy/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Mutasem-mk4/gspy)
-  [![Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
+  [![CI](https://github.com/Mutasem-mk4/gspy/actions/workflows/build.yml/badge.svg)](https://github.com/Mutasem-mk4/gspy/actions/workflows/build.yml)
 </div>
 
 <br>
@@ -102,7 +104,7 @@ gspy is currently being packaged for inclusion in the core repositories of:
 
 ### Compile from Source
 ```bash
-git clone https://github.com/mutasemkharma/gspy
+git clone https://github.com/Mutasem-mk4/gspy
 cd gspy
 make generate   # requires clang >= 14 & bpftool
 make build      # requires go >= 1.21

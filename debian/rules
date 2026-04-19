@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-export DH_GOPKG := github.com/mutasemkharma/gspy
+export DH_GOPKG := github.com/Mutasem-mk4/gspy
 export CGO_ENABLED := 0
 export GOPATH := $(CURDIR)/obj-$(DEB_BUILD_GNU_TYPE)/go
 export PATH := $(GOPATH)/bin:$(PATH)

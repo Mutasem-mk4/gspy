@@ -1,5 +1,5 @@
 Source: gspy
-Section: utils
+Section: admin
 Priority: optional
 Maintainer: Mutasem Kharma <mutasem@gspy.dev>
 Build-Depends: debhelper-compat (= 13),
@@ -10,7 +10,7 @@ Build-Depends: debhelper-compat (= 13),
                libbpf-dev,
                libelf-dev
 Standards-Version: 4.6.2
-Homepage: https://github.com/mutasemkharma/gspy
+Homepage: https://github.com/Mutasem-mk4/gspy
 Rules-Requires-Root: no
 
 Package: gspy
