@@ -356,5 +356,10 @@ func (t *Table) SaveSnapshot(filename string) error {
 
 	encoder := json.NewEncoder(f)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(t.AllRows)
+	err = encoder.Encode(t.AllRows)
+	if err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }

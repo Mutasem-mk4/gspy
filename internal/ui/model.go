@@ -333,13 +333,13 @@ func (m *Model) renderTable() string {
 		m.config.GoVersion, m.table.GoroutineCount(), uptime,
 		m.table.Filter, m.config.Readonly, m.config.SHA256, m.pulse)
 	_, _ = b.WriteString(header)
-	_, _ = b.WriteString("\n")
+	_, _ = _, _ = b.WriteString("\n")
 
 	// Column headers with sort indicator
 	sortCol, sortInd := m.table.SortColumnName()
 	colHeaders := RenderColumnHeaders(m.width, sortCol, sortInd)
 	_, _ = b.WriteString(colHeaders)
-	_, _ = b.WriteString("\n")
+	_, _ = _, _ = b.WriteString("\n")
 
 	// Table rows
 	visibleRows := m.table.VisibleSlice()
@@ -358,15 +358,15 @@ func (m *Model) renderTable() string {
 		// Check if this row is the selected row by pointer.
 		selected := (row == m.table.SelectedRow())
 
-		b.WriteString(RenderRow(row, m.width, selected))
-		b.WriteString("\n")
+		_, _ = b.WriteString(RenderRow(row, m.width, selected))
+		_, _ = b.WriteString("\n")
 		rowsRendered++
 	}
 
 	// Pad remaining rows
 	for rowsRendered < maxRows {
 		_, _ = b.WriteString(strings.Repeat(" ", m.width))
-		_, _ = b.WriteString("\n")
+		_, _ = _, _ = b.WriteString("\n")
 		rowsRendered++
 	}
 
