@@ -14,9 +14,10 @@ permissions:
   contents: write
 
 env:
-  GO_VERSION: "1.21"
+  GO_VERSION: "1.24"
   CLANG_VERSION: "16"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GOFLAGS: "-mod=mod"
 
 jobs:
   # ─────────────────────────────────────────────────────────
@@ -55,7 +56,7 @@ jobs:
 
       - name: Generate BPF bindings
         run: |
-          go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
+          go install github.com/cilium/ebpf/cmd/bpf2go@v0.17.1
           export PATH=$PATH:$(go env GOPATH)/bin
           make generate
 
@@ -73,7 +74,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.59.1
+          version: v1.64.2
           args: --timeout=5m --build-tags=testing
 
   # ─────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.21', '1.22', '1.23']
+        go-version: ['1.21', '1.22', '1.23', '1.24']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -160,7 +161,7 @@ jobs:
         env:
           CGO_ENABLED: "0"
         run: |
-          go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
+          go install github.com/cilium/ebpf/cmd/bpf2go@v0.17.1
           export PATH=$PATH:$(go env GOPATH)/bin
 
           # FIX BUG 1: Use git describe for proper version string

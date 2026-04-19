@@ -53,6 +53,8 @@ var gidOffsetTable = map[string]uint64{
 	"1.22": 152,
 	// Go 1.23: https://github.com/golang/go/blob/go1.23.0/src/runtime/runtime2.go#L445
 	"1.23": 152,
+	// Go 1.24: https://github.com/golang/go/blob/go1.24.0/src/runtime/runtime2.go#L445
+	"1.24": 152,
 }
 
 // DefaultGIDOffset is the fallback offset used when the Go version is unknown
@@ -309,5 +311,5 @@ func IsGoVersion(s string) bool {
 
 // SupportedGoVersionRange returns the range of Go versions with verified offsets.
 func SupportedGoVersionRange() string {
-	return "1.17 – 1.23 (amd64 verified)"
+	return "1.17 – 1.24 (amd64 verified)"
 }

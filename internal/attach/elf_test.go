@@ -11,7 +11,7 @@ import (
 )
 
 func TestGIDOffsetTable(t *testing.T) {
-	// Verify offset lookup returns correct value for Go 1.17 through 1.23.
+	// Verify offset lookup returns correct value for Go 1.17 through 1.24.
 	tests := []struct {
 		goVersion  string
 		wantOffset uint64
@@ -32,6 +32,8 @@ func TestGIDOffsetTable(t *testing.T) {
 		{"go1.22rc1", 152, true},
 		{"go1.23", 152, true},
 		{"go1.23.4", 152, true},
+		{"go1.24", 152, true},
+		{"go1.24.0", 152, true},
 	}
 
 	for _, tt := range tests {
@@ -108,6 +110,8 @@ func TestGoVersionParse(t *testing.T) {
 		{"go1.22beta1", 1, 22, false},
 		{"go1.23", 1, 23, false},
 		{"go1.23.4", 1, 23, false},
+		{"go1.24", 1, 24, false},
+		{"go1.24.0", 1, 24, false},
 		{"go2.0", 2, 0, false},
 		// Error cases
 		{"notaversion", 0, 0, true},
@@ -218,7 +222,7 @@ func TestSupportedGoVersionRange(t *testing.T) {
 	if r == "" {
 		t.Error("SupportedGoVersionRange() should return non-empty string")
 	}
-	if !searchString(r, "1.17") || !searchString(r, "1.23") {
-		t.Errorf("SupportedGoVersionRange() = %q, should mention 1.17 and 1.23", r)
+	if !searchString(r, "1.17") || !searchString(r, "1.24") {
+		t.Errorf("SupportedGoVersionRange() = %q, should mention 1.17 and 1.24", r)
 	}
 }
