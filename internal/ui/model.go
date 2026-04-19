@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/mutasemkharma/gspy/internal/bpf"
 )
 
@@ -76,9 +77,9 @@ type Model struct {
 	// UI Feedback
 	flash string // temporary message in footer
 
-	// Recent syscalls per goroutine (for expanded view)
-	// Keyed by GID, stores last 20 syscalls.
 	recentSyscalls map[uint64][]SyscallRecord
+	showHelp       bool
+	processExited  bool
 
 	// State
 	quitting bool
@@ -171,15 +172,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ProcessExitedMsg:
-		m.quitting = true
-		fmt.Fprintf(&strings.Builder{}, "process %d exited, detaching\n",
-			m.config.PID)
-		return m, tea.Quit
+		m.processExited = true
+		return m, nil
 
 	case ErrorMsg:
 		m.err = msg.Err
-		m.quitting = true
-		return m, tea.Quit
+		if !m.processExited {
+			m.quitting = true
+			return m, tea.Quit
+		}
+		return m, nil
 
 	default:
 		return m, nil
@@ -188,10 +190,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKey processes key press events.
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// If in expanded view, ESC returns to table.
-	if m.table.Expanded {
+	// If help or expanded view is open, most keys return to table.
+	if m.showHelp || m.table.Expanded {
 		switch msg.String() {
-		case "esc", "q":
+		case "esc", "q", "?", "backspace":
+			m.showHelp = false
 			m.table.Expanded = false
 			return m, nil
 		}
@@ -246,7 +249,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		})
 
 	case "?":
-		// Toggle help overlay — for now just cycle filter as feedback
+		m.showHelp = true
 		return m, nil
 	}
 
@@ -302,6 +305,11 @@ func (m *Model) View() string {
 		return fmt.Sprintf("process %d exited, detaching\n", m.config.PID)
 	}
 
+	// Overlay screens.
+	if m.showHelp {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+			RenderHelp(m.width, m.height))
+	}
 	if m.table.Expanded {
 		return m.renderExpanded()
 	}
@@ -332,6 +340,11 @@ func (m *Model) renderTable() string {
 	rowsRendered := 0
 	maxRows := m.table.MaxVisibleRows()
 
+	if len(visibleRows) == 0 {
+		b.WriteString(RenderEmptyState(m.width, maxRows))
+		rowsRendered = maxRows
+	}
+
 	for _, row := range visibleRows {
 		if rowsRendered >= maxRows {
 			break
@@ -356,7 +369,7 @@ func (m *Model) renderTable() string {
 	if footer == "" {
 		footer = " q:quit  cr:expand  f:filter  s:sort  ŝ:order  ^j:dump  ?:help"
 	}
-	b.WriteString(RenderFooter(m.width, footer))
+	b.WriteString(RenderFooter(m.width, footer, m.processExited))
 
 	return b.String()
 }

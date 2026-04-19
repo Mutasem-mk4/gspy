@@ -144,6 +144,27 @@ func RenderHeader(width int, pid int, binary string, goVersion string,
 	return headerStyle.Width(width).Render(line)
 }
 
+// RenderEmptyState renders a placeholder when the table is empty.
+func RenderEmptyState(width, height int) string {
+	msg := " Scanning for active goroutines... \n (Check if the process is a Go binary) "
+	styled := columnHeaderStyle.Padding(1, 2).Render(msg)
+	
+	lines := strings.Split(styled, "\n")
+	var b strings.Builder
+	// Center vertically
+	for i := 0; i < (height/2)-2; i++ {
+		b.WriteString("\n")
+	}
+	for _, l := range lines {
+		pad := (width - lipgloss.Width(l)) / 2
+		if pad < 0 {
+			pad = 0
+		}
+		b.WriteString(strings.Repeat(" ", pad) + l + "\n")
+	}
+	return b.String()
+}
+
 // RenderColumnHeaders renders the column header row with sort indicator.
 func RenderColumnHeaders(width int, sortCol string, sortIndicator string) string {
 	frameWidth := width - colGID - colState - colSyscall - colLatency -
@@ -206,11 +227,47 @@ func RenderRow(row *GoroutineRow, width int, selected bool) string {
 }
 
 // RenderFooter renders the bottom help bar.
-func RenderFooter(width int, text string) string {
+func RenderFooter(width int, text string, processExited bool) string {
+	if processExited {
+		text = " 󱇰 PROCESS EXITED. Final trace snapshot. Press Q to exit. "
+		return headerStyle.Background(colRed).Width(width).Render(text)
+	}
 	if len(text) > width {
 		text = text[:width]
 	}
 	return footerStyle.Width(width).Render(text)
+}
+
+// RenderHelp renders the help overlay.
+func RenderHelp(width, height int) string {
+	var b strings.Builder
+	b.WriteString(expandedTitleStyle.Render(" gspy Keybindings "))
+	b.WriteString("\n\n")
+
+	keys := [][]string{
+		{"q / ctrl+c", "Quit gspy"},
+		{"j / k", "Navigate table"},
+		{"enter", "Expand goroutine history"},
+		{"esc / q", "Close expanded view / help"},
+		{"f", "Cycle filter (IO/Net/Sched/All)"},
+		{"s", "Toggle Sort (Count/Latency)"},
+		{"S", "Toggle Sort Order (Asc/Desc)"},
+		{"ctrl+j", "Save JSON snapshot to disk"},
+		{"?", "Show/Hide this help screen"},
+	}
+
+	for _, k := range keys {
+		b.WriteString(fmt.Sprintf("  %-12s  %s\n", k[0], k[1]))
+	}
+
+	b.WriteString("\n")
+	b.WriteString(dimStyle.Render(" Press any key to close "))
+
+	content := b.String()
+	if width > 40 && height > 15 {
+		return expandedBorderStyle.Padding(1, 4).Render(content)
+	}
+	return content
 }
 
 // RenderExpanded renders the full-screen expanded goroutine view.
@@ -365,7 +422,6 @@ func formatLatency(us int64) string {
 	return fmt.Sprintf("%.1fs", float64(us)/1000000.0)
 }
 
-// truncate shortens a string to maxLen, adding "…" if truncated.
 func truncate(s string, maxLen int) string {
 	if maxLen <= 0 {
 		return ""
@@ -373,9 +429,20 @@ func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	if maxLen <= 1 {
-		return "…"
+
+	// Smart truncation for Go symbols: github.com/foo/bar.Function -> …bar.Function
+	// Only apply if we have enough space to make it look decent.
+	if maxLen > 10 && strings.Contains(s, ".") {
+		parts := strings.Split(s, "/")
+		if len(parts) > 1 {
+			short := "…" + parts[len(parts)-1]
+			if len(short) <= maxLen {
+				return short
+			}
+		}
 	}
+
+	// Default fallback: truncate at start and append ellipse.
 	return s[:maxLen-1] + "…"
 }
 

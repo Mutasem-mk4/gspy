@@ -126,8 +126,10 @@ func CheckCapabilities() error {
 	}
 
 	return fmt.Errorf(
-		"gspy requires CAP_BPF and CAP_PERFMON. Run as root, or grant " +
-			"capabilities with: sudo setcap cap_bpf,cap_perfmon+ep $(which gspy)")
+		"insufficient privileges to attach eBPF probes.\n" +
+			"gspy requires CAP_BPF and CAP_PERFMON (Linux 5.8+).\n\n" +
+			"FIX: Run as root (sudo) or grant capabilities:\n" +
+			"  sudo setcap cap_bpf,cap_perfmon+ep $(which gspy)")
 }
 
 // readCapEff reads the CapEff line from the given /proc/self/status path
@@ -181,8 +183,9 @@ func CheckKernelVersion() error {
 
 	if major < 5 || (major == 5 && minor < 8) {
 		return fmt.Errorf(
-			"kernel %d.%d is too old: gspy requires Linux >= 5.8 "+
-				"(BPF ring buffer support)", major, minor)
+			"unsupported kernel version %d.%d.\n\n"+
+				"gspy requires Linux >= 5.8 for BPF ring buffer support.\n"+
+				"Please upgrade your kernel or check if BPF is enabled (CONFIG_BPF=y).", major, minor)
 	}
 
 	return nil
