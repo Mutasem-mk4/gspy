@@ -188,8 +188,8 @@ jobs:
       - name: Generate BPF bytecode
         run: |
           cd internal/bpf
-          # Run bpf2go directly (matches the go:generate directive in loader.go)
-          # Source is at ../../bpf/gspy.bpf.c, includes from ../../bpf/
+          # bpf2go requires GOPACKAGE when not invoked via go generate
+          export GOPACKAGE=bpf
           bpf2go \
             -cc clang \
             -target bpfel \
