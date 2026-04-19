@@ -1,7 +1,7 @@
 # gspy
 
 <div align="center">
-  <img src="docs/assets/logo.png" alt="gspy logo" width="350" />
+  <img src="docs/assets/logo.jpg" alt="gspy logo" width="350" />
   <br />
   <p><strong>Forensic goroutine-to-syscall inspector for live Go processes.</strong></p>
   
