@@ -66,6 +66,9 @@ struct syscall_event {
 	__u64 frame_pc;   // top user-space stack frame PC (0 if unavailable)
 };
 
+// Force BTF emission for the syscall_event struct which is only used over ringbuf
+const struct syscall_event *__unused_syscall_event __attribute__((unused));
+
 // syscall_enter_info: per-thread scratch for latency calculation.
 // sizeof = 24 bytes.
 struct syscall_enter_info {
