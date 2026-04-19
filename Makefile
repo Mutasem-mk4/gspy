@@ -29,8 +29,11 @@ LDFLAGS = -s -w \
 # Generate BPF bytecode from C source using bpf2go.
 # Requires: clang >= 14, go >= 1.21
 # Produces: internal/bpf/gspy_bpfel.go, internal/bpf/gspy_bpfel.o
+# NOTE: GOFLAGS=-mod=mod is required because bpf2go is a build tool,
+# not vendored as a runtime dependency. When vendor/ exists, Go defaults
+# to -mod=vendor which blocks module resolution for tools.
 generate:
-	go generate ./internal/bpf/...
+	GOFLAGS=-mod=mod go generate ./internal/bpf/...
 
 # Build the gspy binary.
 # Uses -trimpath for reproducible builds (required for distro packaging).
