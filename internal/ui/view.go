@@ -11,55 +11,74 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Styles — 16-color ANSI only (must work over SSH)
+// Styles — High-fidelity TrueColor (24-bit) theme
 // ---------------------------------------------------------------------------
-//
-// We use only standard ANSI colors (0-15) to ensure compatibility with
-// minimal terminal emulators and remote SSH sessions.
 
 var (
-	// headerStyle: bold reverse for the header bar.
+	// Palette
+	colTeal   = lipgloss.Color("#00FFD1") // Active accent
+	colGold   = lipgloss.Color("#FFB800") // Warnings/Syscall
+	colRed    = lipgloss.Color("#FF0055") // High latency/Panic
+	colDim    = lipgloss.Color("#5C6370") // Faint/Dead
+	colGreen  = lipgloss.Color("#A6E22E") // Running
+	colPurple = lipgloss.Color("#BD93F9") // Selection accent
+	colBg     = lipgloss.Color("#1A1B26") // Deep Slate base
+
+	// headerStyle: bold reverse for the header bar with Teal accent.
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
-			Reverse(true)
+			Background(colTeal).
+			Foreground(lipgloss.Color("#000000"))
 
 	// footerStyle: dim text for the footer help bar.
 	footerStyle = lipgloss.NewStyle().
-			Faint(true)
+			Foreground(colDim)
 
-	// selectedStyle: reverse video for the selected row.
+	// selectedStyle: vibrant selection bar.
 	selectedStyle = lipgloss.NewStyle().
-			Reverse(true)
+			Background(colPurple).
+			Foreground(lipgloss.Color("#000000")).
+			Bold(true)
 
-	// columnHeaderStyle: bold for column headers.
+	// columnHeaderStyle: bold underlines for column headers.
 	columnHeaderStyle = lipgloss.NewStyle().
-				Bold(true)
+				Bold(true).
+				Foreground(colTeal).
+				Underline(true)
 
-	// redStyle: red foreground for latency > 100ms.
+	// redStyle: high alert for latency > 100ms.
 	redStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("1"))
+			Foreground(colRed).
+			Bold(true)
 
-	// yellowStyle: yellow foreground for "syscall" state.
+	// yellowStyle: gold for "syscall" state.
 	yellowStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("3"))
+			Foreground(colGold)
 
-	// dimStyle: dim text for "dead" state goroutines.
+	// dimStyle: faint text for "dead" state.
 	dimStyle = lipgloss.NewStyle().
-			Faint(true)
+			Foreground(colDim)
 
-	// greenStyle: green for "running" state.
+	// greenStyle: vibrant green for "running" state.
 	greenStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("2"))
+			Foreground(colGreen)
 
 	// expandedTitleStyle: bold for expanded view title.
 	expandedTitleStyle = lipgloss.NewStyle().
 				Bold(true).
-				Underline(true)
+				Foreground(colTeal).
+				Background(lipgloss.Color("#24283B")).
+				Padding(0, 1)
 
 	// expandedBorderStyle: for the expanded view overlay border.
 	expandedBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
+				Border(lipgloss.ThickBorder()).
+				BorderForeground(colTeal).
 				Padding(0, 1)
+
+	// liveIndicatorStyle: pulsating teal/dim dot.
+	liveIndicatorStyle = lipgloss.NewStyle().
+				Bold(true)
 )
 
 // ---------------------------------------------------------------------------
@@ -85,20 +104,27 @@ const (
 
 // RenderHeader renders the top header bar.
 // Left:  "gspy  pid:<PID>  binary:<name>  go:<version>"
-// Right: "goroutines:<N>  attached:<duration>"
+// Right: "goroutines:<N>  attached:<duration>  ● LIVE"
 func RenderHeader(width int, pid int, binary string, goVersion string,
 	goroutines int, uptime string, filter FilterMode,
-	readonly bool, sha256 string) string {
+	readonly bool, sha256 string, pulse bool) string {
 
-	left := fmt.Sprintf(" gspy  pid:%d  binary:%s  go:%s",
-		pid, truncate(binary, 20), goVersion)
+	left := fmt.Sprintf(" GSPY [%d]  %s  %s",
+		pid, truncate(binary, 25), goVersion)
 
-	right := fmt.Sprintf("goroutines:%d  attached:%s ",
-		goroutines, uptime)
+	indicator := " "
+	if pulse {
+		indicator = liveIndicatorStyle.Foreground(colGreen).Render("●")
+	} else {
+		indicator = liveIndicatorStyle.Foreground(colDim).Render("●")
+	}
+
+	right := fmt.Sprintf("G:%d  %s  %s LIVE ",
+		goroutines, uptime, indicator)
 
 	// Add filter indicator
 	if filter != FilterAll {
-		left += fmt.Sprintf("  [filter:%s]", filter)
+		left += fmt.Sprintf("   %s", filter)
 	}
 
 	// Add readonly indicator
@@ -107,7 +133,7 @@ func RenderHeader(width int, pid int, binary string, goVersion string,
 		if len(shaShort) > 12 {
 			shaShort = shaShort[:12]
 		}
-		left += fmt.Sprintf("  [READONLY sha256:%s]", shaShort)
+		left += fmt.Sprintf("  [FORENSIC:%s]", shaShort)
 	}
 
 	// Pad to fill width
@@ -117,11 +143,6 @@ func RenderHeader(width int, pid int, binary string, goVersion string,
 	}
 
 	line := left + strings.Repeat(" ", pad) + right
-
-	// Ensure exact width
-	if lipgloss.Width(line) > width {
-		line = line[:width]
-	}
 
 	return headerStyle.Width(width).Render(line)
 }
@@ -188,12 +209,11 @@ func RenderRow(row *GoroutineRow, width int, selected bool) string {
 }
 
 // RenderFooter renders the bottom help bar.
-func RenderFooter(width int) string {
-	help := " q:quit  enter:expand  f:filter  s:sort  r:readonly  j:json-dump  ?:help"
-	if len(help) > width {
-		help = help[:width]
+func RenderFooter(width int, text string) string {
+	if len(text) > width {
+		text = text[:width]
 	}
-	return footerStyle.Width(width).Render(help)
+	return footerStyle.Width(width).Render(text)
 }
 
 // RenderExpanded renders the full-screen expanded goroutine view.
