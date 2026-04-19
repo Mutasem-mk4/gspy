@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# golangci-lint configuration for gspy
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  # Skip generated BPF files and test files that import them
+  skip-dirs:
+    - vendor
+  skip-files:
+    - ".*_bpfel.*\\.go$"
+    - ".*_bpfeb.*\\.go$"
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+  disable:
+    # Too noisy for a security tool with intentional unsafe usage
+    - gosec
+
+linters-settings:
+  govet:
+    check-shadowing: false
+  staticcheck:
+    checks:
+      - all
+      - "-SA1019" # Allow deprecated API usage for backward compat
+
+issues:
+  # Don't limit per-linter issue count
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Allow unused parameters in interface implementations
+    - linters:
+        - unused
+      text: "parameter .* is unused"
+    # Ignore build-tag separated files
+    - path: loader\.go
+      linters:
+        - typecheck
+    - path: vmreadv_linux\.go
+      linters:
+        - typecheck

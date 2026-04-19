@@ -237,9 +237,15 @@ int uprobe_runtime_execute(struct pt_regs *ctx)
 	__u32 tid = get_current_tid();
 
 	// Go ABIInternal (1.17+ amd64): first argument (gp *g) is in RAX.
-	// PT_REGS_PARM1 reads rdi (C ABI), but Go uses rax. Read ax directly.
-	__u64 gp_ptr = 0;
-	bpf_probe_read_kernel(&gp_ptr, sizeof(gp_ptr), &ctx->ax);
+	//
+	// We cannot use PT_REGS_PARM1 (which reads rdi for C ABI). Go's
+	// internal ABI passes the first argument in rax. Use BPF_CORE_READ
+	// for CO-RE safe access to the register.
+	//
+	// On amd64, struct pt_regs has:
+	//   unsigned long ax;  // at some offset depending on kernel version
+	// BPF_CORE_READ handles the offset relocation automatically.
+	__u64 gp_ptr = BPF_CORE_READ(ctx, ax);
 
 	if (gp_ptr == 0)
 		return 0;
@@ -247,9 +253,9 @@ int uprobe_runtime_execute(struct pt_regs *ctx)
 	// Read goid from runtime.g struct at the configured offset.
 	// gid_offset is set at load time from userspace after ELF/DWARF detection.
 	__u64 gid = 0;
-	bpf_probe_read_user(&gid, sizeof(gid), (void *)(gp_ptr + gid_offset));
-
-	if (gid == 0)
+	int ret = bpf_probe_read_user(&gid, sizeof(gid),
+				       (void *)(gp_ptr + gid_offset));
+	if (ret < 0 || gid == 0)
 		return 0;
 
 	// Update TID → GID mapping
@@ -262,7 +268,7 @@ int uprobe_runtime_execute(struct pt_regs *ctx)
 	// Store SP from pt_regs as best-effort frame pointer for stack walking.
 	// This is the kernel thread's SP at uprobe entry, not the goroutine's
 	// user stack, but provides context for process_vm_readv stack walking.
-	bpf_probe_read_kernel(&meta.frame_ptr, sizeof(meta.frame_ptr), &ctx->sp);
+	meta.frame_ptr = BPF_CORE_READ(ctx, sp);
 
 	bpf_map_update_elem(&goroutine_meta_map, &gid, &meta, BPF_ANY);
 
