@@ -28,7 +28,7 @@ build() {
 
     # Generate vmlinux.h from running kernel's BTF data if available
     if [ -f /sys/kernel/btf/vmlinux ]; then
-        bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/bpf/vmlinux.h
+        bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
     fi
 
     # Generate BPF bytecode from C source
@@ -41,9 +41,9 @@ build() {
         -target bpfel \
         -type goroutine_meta \
         -type syscall_event \
-        gspy gspy.bpf.c -- \
+        gspy ../../bpf/gspy.bpf.c -- \
         -I/usr/include \
-        -I. \
+        -I../../bpf \
         -O2 -g \
         -DBPF_NO_PRESERVE_ACCESS_INDEX
     cd ../..
@@ -61,7 +61,7 @@ build() {
 check() {
     cd "${pkgname}-${pkgver}"
     # Tests use mock BPF layer — no root, no kernel, no BPF required
-    go test -v ./...
+    go test -v -tags=testing ./...
 }
 
 package() {

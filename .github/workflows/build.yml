@@ -2,10 +2,10 @@
 # CI/CD pipeline for gspy — forensic goroutine-to-syscall inspector
 #
 # This workflow:
-#   1. Compiles BPF bytecode from C using clang + bpf2go
-#   2. Builds the Go binary with reproducible flags
-#   3. Runs the full test suite with race detector
-#   4. Runs golangci-lint for code quality
+#   1. Runs the full test suite with race detector (mock BPF, no root)
+#   2. Runs golangci-lint for code quality
+#   3. Compiles BPF bytecode from C using clang + bpf2go
+#   4. Builds the Go binary with reproducible flags
 #   5. Creates release artifacts on tag push
 
 name: Build & Test
@@ -42,9 +42,10 @@ jobs:
         uses: golangci/golangci-lint-action@v4
         with:
           version: latest
-          args: --timeout=5m
-          # Skip packages that require generated BPF code
-          # (loader.go has linux build tag, won't compile here)
+          # Only lint packages that compile without generated BPF code.
+          # loader.go has build tag "linux && !testing" so it's excluded.
+          # The bpf/ directory is outside any Go package, so no C file issues.
+          args: --timeout=5m --build-tags=testing
           skip-pkg-cache: true
 
   # ─────────────────────────────────────────────────────────
@@ -61,11 +62,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Run tests with race detector
-        run: go test -v -race -count=1 ./...
+        run: go test -v -race -count=1 -tags=testing ./...
 
       - name: Check test coverage
         run: |
-          go test -coverprofile=cover.out ./internal/attach/... ./internal/proc/... ./internal/ui/...
+          go test -tags=testing -coverprofile=cover.out ./internal/attach/... ./internal/proc/... ./internal/ui/...
           go tool cover -func=cover.out | tail -1
 
   # ─────────────────────────────────────────────────────────
@@ -103,29 +104,25 @@ jobs:
 
       - name: Generate vmlinux.h from kernel BTF
         run: |
-          # Try bpftool first; fall back to downloading a prebuilt vmlinux.h
+          # Try bpftool first; fall back to installing it
           if command -v bpftool &> /dev/null && [ -f /sys/kernel/btf/vmlinux ]; then
-            bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/bpf/vmlinux.h
+            bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
             echo "Generated vmlinux.h from running kernel BTF"
           else
-            echo "bpftool or BTF not available, downloading prebuilt vmlinux.h"
-            # Use libbpf's bundled vmlinux.h for the GitHub runner's kernel
-            curl -sSL \
-              "https://raw.githubusercontent.com/libbpf/libbpf/master/src/bpf_helpers.h" \
-              -o /dev/null  # Just verify connectivity
-            # Generate a minimal vmlinux.h from the kernel headers
-            echo "Attempting to generate from kernel headers..."
-            sudo apt-get install -y bpftool 2>/dev/null || true
+            echo "bpftool or BTF not available, attempting to install..."
+            sudo apt-get install -y linux-tools-$(uname -r) bpftool 2>/dev/null || true
             if [ -f /sys/kernel/btf/vmlinux ]; then
-              bpftool btf dump file /sys/kernel/btf/vmlinux format c > internal/bpf/vmlinux.h
+              bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
+              echo "Generated vmlinux.h after installing bpftool"
             else
-              echo "WARNING: No BTF available. Using fallback vmlinux.h"
-              # Download a known-good vmlinux.h for 5.15+ kernels
-              curl -sSL \
-                "https://raw.githubusercontent.com/cilium/ebpf/main/btf/testdata/vmlinux.btf.gz" \
-                -o /tmp/vmlinux.btf.gz || true
+              echo "ERROR: No BTF available on this kernel. Cannot generate vmlinux.h."
+              echo "The GitHub runner kernel may not have CONFIG_DEBUG_INFO_BTF=y"
+              exit 1
             fi
           fi
+          # Verify vmlinux.h was generated
+          ls -la bpf/vmlinux.h
+          head -5 bpf/vmlinux.h
 
       - name: Install bpf2go
         run: go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0
@@ -134,14 +131,15 @@ jobs:
         run: |
           cd internal/bpf
           # Run bpf2go directly (matches the go:generate directive in loader.go)
+          # Source is at ../../bpf/gspy.bpf.c, includes from ../../bpf/
           bpf2go \
             -cc clang \
             -target bpfel \
             -type goroutine_meta \
             -type syscall_event \
-            gspy gspy.bpf.c -- \
+            gspy ../../bpf/gspy.bpf.c -- \
             -I/usr/include \
-            -I. \
+            -I../../bpf \
             -O2 -g \
             -DBPF_NO_PRESERVE_ACCESS_INDEX
 
