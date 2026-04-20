@@ -1,4 +1,4 @@
-# gspy
+# gspy — eBPF Forensic Inspector for Go Binaries & Malware Analysis
 
 <div align="center">
   <img src="docs/assets/logo.jpg" alt="gspy logo" width="100%" />
