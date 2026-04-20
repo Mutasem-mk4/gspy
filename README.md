@@ -85,11 +85,12 @@ This will build `gspy`, launch a "suspicious" target process in the background, 
 
 gspy rigidly tracks the internal Application Binary Interface (ABI) of the Go compiler.
 
-| Go Version | AMD64 (`x86_64`) | ARM64 (`aarch64`) |
+| Go Version | AMD64 ( `x86_64` ) | ARM64 ( `aarch64` ) |
 |------------|-------|-------|
 | **1.21.x** | ✅ Validated | ✅ Validated |
 | **1.22.x** | ✅ Validated | ✅ Validated |
 | **1.23.x** | ✅ Validated | ✅ Validated |
+| **1.24.x** | ✅ Validated | ✅ Validated |
 | *1.17 - 1.20* | ⚠️ Legacy / Experimental | ⚠️ Legacy / Experimental |
 
 ### Linux Kernel Constraints
