@@ -171,13 +171,16 @@ jobs:
       - name: Generate BPF and Build
         env:
           CGO_ENABLED: "0"
-          GOARCH: ${{ matrix.arch }}
         run: |
           # FIX BUG 1: Use git describe for proper version string
           VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
           echo "Building with VERSION=${VERSION}"
+          
+          # 1. Generate (Must run on host arch to execute bpf2go)
           make generate
-          make build VERSION=${VERSION}
+          
+          # 2. Build (Target specific arch)
+          make build VERSION=${VERSION} GOARCH=${{ matrix.arch }}
 
       - name: Verify binary
         run: |
