@@ -30,10 +30,10 @@ func TestGIDOffsetTable(t *testing.T) {
 		{"go1.22", 152, true},
 		{"go1.22.0", 152, true},
 		{"go1.22rc1", 152, true},
-		{"go1.23", 152, true},
-		{"go1.23.4", 152, true},
-		{"go1.24", 152, true},
-		{"go1.24.0", 152, true},
+		{"go1.23", 160, true},
+		{"go1.23.4", 160, true},
+		{"go1.24", 160, true},
+		{"go1.24.0", 160, true},
 	}
 
 	for _, tt := range tests {

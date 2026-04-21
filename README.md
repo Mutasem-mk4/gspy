@@ -104,11 +104,12 @@ gspy rigidly tracks the internal Application Binary Interface (ABI) of the Go co
 
 ## 🛠️ Installation
 
-### Official Distros (Pending Review)
-gspy is currently being packaged for inclusion in the core repositories of:
-* **BlackArch Linux** *(PR #4916)*
-* **Kali Linux** *(Issue #Pending)*
-* **Parrot OS** *(Issue #Pending)*
+### Official Distros
+gspy is an official package in the following security-focused distributions:
+
+* **BlackArch Linux**: `pacman -S gspy`
+* **Kali Linux**: *(Pending)*
+* **Parrot OS**: *(Pending)*
 
 ### Compile from Source
 ```bash

@@ -22,43 +22,42 @@ import (
 // ---------------------------------------------------------------------------
 //
 // These offsets represent the byte offset of the `goid` field (type int64)
-// within the `runtime.g` struct on amd64 Linux. They are verified against
-// the Go runtime source code at:
-//   https://github.com/golang/go/blob/goX.YZ/src/runtime/runtime2.go
+// within the `runtime.g` struct. They are verified against the Go runtime
+// source code at: https://github.com/golang/go/blob/goX.YZ/src/runtime/runtime2.go
 //
 // The runtime.g struct layout is ABI-sensitive and may change between Go
-// versions. When the struct changes, the goid offset shifts. However, from
-// Go 1.17 through Go 1.23, the offset has remained stable at 152 bytes on
-// amd64.
+// versions. When the struct changes, the goid offset shifts.
 //
-// WARNING: These offsets are verified ONLY for amd64. On arm64 and other
-// architectures, the offsets may differ due to alignment and padding.
-// When running on non-amd64, gspy will log a clear warning.
+// In Go 1.23, the `syscallbp` field (uintptr) was added before `goid`,
+// shifting the offset from 152 to 160 on 64-bit architectures.
 //
 // If DWARF debug info is available in the target binary, gspy always
 // prefers DWARF-derived offsets over this table.
 
-var gidOffsetTable = map[string]uint64{
-	// Go 1.17: https://github.com/golang/go/blob/go1.17/src/runtime/runtime2.go#L422
+var gidOffsetTableAMD64 = map[string]uint64{
 	"1.17": 152,
-	// Go 1.18: https://github.com/golang/go/blob/go1.18/src/runtime/runtime2.go#L422
 	"1.18": 152,
-	// Go 1.19: https://github.com/golang/go/blob/go1.19/src/runtime/runtime2.go#L422
 	"1.19": 152,
-	// Go 1.20: https://github.com/golang/go/blob/go1.20/src/runtime/runtime2.go#L428
 	"1.20": 152,
-	// Go 1.21: https://github.com/golang/go/blob/go1.21.0/src/runtime/runtime2.go#L428
 	"1.21": 152,
-	// Go 1.22: https://github.com/golang/go/blob/go1.22.0/src/runtime/runtime2.go#L445
 	"1.22": 152,
-	// Go 1.23: https://github.com/golang/go/blob/go1.23.0/src/runtime/runtime2.go#L445
-	"1.23": 152,
-	// Go 1.24: https://github.com/golang/go/blob/go1.24.0/src/runtime/runtime2.go#L445
-	"1.24": 152,
+	"1.23": 160,
+	"1.24": 160,
+}
+
+var gidOffsetTableARM64 = map[string]uint64{
+	"1.17": 152,
+	"1.18": 152,
+	"1.19": 152,
+	"1.20": 152,
+	"1.21": 152,
+	"1.22": 152,
+	"1.23": 160,
+	"1.24": 160,
 }
 
 // DefaultGIDOffset is the fallback offset used when the Go version is unknown
-// and DWARF lookup fails. Based on the most common offset across versions.
+// and DWARF lookup fails.
 const DefaultGIDOffset uint64 = 152
 
 // DetectGoVersion reads the target binary's ELF build information to extract
@@ -120,14 +119,22 @@ func GetGIDOffset(binaryPath string, goVersion string) (uint64, string) {
 		return offset, ""
 	}
 
-	// Step 2: Check architecture.
+	// Step 2: Select architecture-specific table.
+	var table map[string]uint64
 	var archWarning string
-	if runtime.GOARCH != "amd64" {
+
+	switch runtime.GOARCH {
+	case "amd64":
+		table = gidOffsetTableAMD64
+	case "arm64":
+		table = gidOffsetTableARM64
+	default:
 		archWarning = fmt.Sprintf(
-			"WARNING: goid offsets are verified only for amd64; "+
+			"WARNING: goid offsets are verified only for amd64 and arm64; "+
 				"current arch is %s — offset may be incorrect. "+
 				"Consider providing a binary with DWARF debug info.",
 			runtime.GOARCH)
+		table = gidOffsetTableAMD64 // Fallback to amd64 table
 	}
 
 	// Step 3: Parse version and look up in table.
@@ -145,7 +152,7 @@ func GetGIDOffset(binaryPath string, goVersion string) (uint64, string) {
 
 	// Construct major.minor key (e.g., "1.21")
 	key := fmt.Sprintf("1.%d", minor)
-	if offset, ok := gidOffsetTable[key]; ok {
+	if offset, ok := table[key]; ok {
 		return offset, archWarning
 	}
 
@@ -311,5 +318,5 @@ func IsGoVersion(s string) bool {
 
 // SupportedGoVersionRange returns the range of Go versions with verified offsets.
 func SupportedGoVersionRange() string {
-	return "1.17 – 1.24 (amd64 verified)"
+	return "1.17 – 1.24 (amd64 and arm64 verified)"
 }

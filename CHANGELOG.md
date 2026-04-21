@@ -7,12 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Official BlackArch Linux Support**: gspy is now an official package in the BlackArch repository.
+- **Verified arm64 Support**: Goroutine ID (`goid`) offsets for Go 1.17–1.24 verified on `aarch64`.
+- Architecture-specific ABI offset tables (internal/attach/elf.go).
+
+### Fixed
+- Fixed Go 1.23 and 1.24 GID offsets (changed from 152 to 160 due to `syscallbp` addition).
+- Potential nil pointer dereferences in BPF event polling and TUI update loops.
+
 ### Planned
-- arm64 goroutine ID offset verification and CI matrix expansion.
 - Codecov integration for test coverage badge automation.
-- `--duration` flag to auto-exit after N seconds (useful for scripted forensic snapshots).
-- DWARF-aware stack frame resolution for improved symbol accuracy.
-- cgroupv2 namespace-aware BPF attachment.
 
 ## [0.2.0] - 2026-04-20
 

@@ -161,6 +161,10 @@ func (m *realManager) LoadAndAttach(pid int, binaryPath string, gidOffset uint64
 // It decodes each event as a SyscallEvent and calls handler.
 // Returns when ctx is cancelled or on unrecoverable error.
 func (m *realManager) PollEvents(ctx context.Context, handler func(SyscallEvent)) error {
+	if m.reader == nil {
+		return errors.New("cannot poll events: BPF reader is nil (LoadAndAttach not called?)")
+	}
+
 	errCh := make(chan error, 1)
 
 	// Close the reader when context is cancelled to unblock Read().

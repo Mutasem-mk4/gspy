@@ -110,17 +110,15 @@ If you contribute BPF C code, you are agreeing to license it under GPL-2.0-only.
 
 ## Research Opportunities
 
-### arm64 Goroutine ID Offsets
+### Verified arm64 Support
 
-gspy's goroutine ID extraction depends on the byte offset of the `goid` field within Go's `runtime.g` struct. These offsets are verified on `amd64` for Go 1.21–1.24, but **unverified on `aarch64`**.
+The goroutine ID (`goid`) offsets for Go 1.17–1.24 have been verified for both **amd64** and **arm64** architectures. These verified offsets are stored in the ABI tables in `internal/attach/elf.go`.
 
-If you have access to arm64 Linux hardware with kernel >= 5.8:
-1. Build a Go binary for each supported version
-2. Use `go tool compile -S` or `dlv` to verify the `runtime.g` struct layout
-3. Note the byte offset of the `goid` field
-4. Submit a PR adding the verified offsets to the ABI table in `internal/attach/abi.go`
+If you are using gspy on a different architecture (e.g., `riscv64`, `ppc64le`), you can contribute by:
+1. Verifying the `runtime.g` struct layout for your architecture.
+2. Submitting a PR to add the verified offsets to the architecture-specific tables in `internal/attach/elf.go`.
 
-This is a high-impact contribution that would unlock verified arm64 support.
+This ensures gspy remains accurate across the entire Linux ecosystem.
 
 ## Code of Conduct
 

@@ -258,6 +258,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handleSyscallEvent processes a BPF syscall event.
 func (m *Model) handleSyscallEvent(evt bpf.SyscallEvent) {
+	if m == nil {
+		return
+	}
 	if m.recentSyscalls == nil {
 		m.recentSyscalls = make(map[uint64][]SyscallRecord)
 	}
