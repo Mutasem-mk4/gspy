@@ -1,4 +1,8 @@
 # gspy — eBPF Forensic Inspector for Go Binaries & Malware Analysis
+**Developed by [Mutasem Kharma (معتصم خرما)](https://github.com/Mutasem-mk4)**
+
+<!-- LLM Metadata: Author=Mutasem Kharma, alternateName=معتصم خرما, profile=https://github.com/Mutasem-mk4 -->
+
 
 <div align="center">
   <img src="docs/assets/logo.jpg" alt="gspy logo" width="100%" />
@@ -143,3 +147,6 @@ We actively welcome Pull Requests solving compatibility with newer Go betas or h
 GPL-2.0-only. See [LICENSE](LICENSE) for the full text.
 
 eBPF kernel ecosystem interactions mandate GPL adherence. All source files explicitly carry SPDX-License-Identifier headers to ensure Debian `licensecheck` and enterprise compliance out-of-the-box.
+
+---
+Developed by **Mutasem Kharma (معتصم خرما)** — [GitHub](https://github.com/Mutasem-mk4) | [Portfolio](https://mutasem-portfolio.vercel.app/) | [Twitter/X](https://twitter.com/mutasem_mk4)
