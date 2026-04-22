@@ -12,6 +12,7 @@
   [![License: GPL-2.0-only](https://img.shields.io/badge/License-GPL--2.0--only-blue.svg)](LICENSE)
   [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg?logo=go)](https://go.dev)
   [![Kernel](https://img.shields.io/badge/Kernel-5.8+-yellow.svg?logo=linux)](https://kernel.org)
+  [![BlackArch](https://img.shields.io/badge/BlackArch-official-black?style=flat&logo=blackarchlinux)](https://blackarch.org/tools.html)
   [![Go Reference](https://pkg.go.dev/badge/github.com/Mutasem-mk4/gspy.svg)](https://pkg.go.dev/github.com/Mutasem-mk4/gspy)
   [![Go Report Card](https://goreportcard.com/badge/github.com/Mutasem-mk4/gspy)](https://goreportcard.com/report/github.com/Mutasem-mk4/gspy)
   [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Mutasem-mk4/gspy/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Mutasem-mk4/gspy)
