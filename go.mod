@@ -1,12 +1,12 @@
 module github.com/Mutasem-mk4/gspy
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/cilium/ebpf v0.21.0
-	golang.org/x/sys v0.37.0
+	golang.org/x/sys v0.43.0
 )
 
 require (
