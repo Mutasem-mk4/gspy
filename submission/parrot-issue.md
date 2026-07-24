@@ -1,7 +1,7 @@
 ## New tool request: gspy — forensic goroutine-to-syscall inspector for live Go processes
 
 **Repository:** https://github.com/Mutasem-mk4/gspy
-**Version:** 0.2.0
+**Version:** 0.2.1
 **License:** GPL-2.0-only
 **Category:** Forensics / Reverse Engineering
 
@@ -20,7 +20,7 @@ gspy attaches to a running Go process by PID using eBPF uprobes and kernel trace
 
 - Linux kernel >= 5.8
 - CAP_BPF + CAP_PERFMON (or root)
-- amd64 (arm64 experimental)
+- amd64 and arm64
 
 ### Packaging
 

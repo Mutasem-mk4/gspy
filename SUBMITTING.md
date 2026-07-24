@@ -45,7 +45,7 @@ BlackArch is the easiest starting point. Submission is a single pull request.
    - Maps goroutine IDs to kernel syscalls in real-time
    - Uses uprobes + tracepoints (no ptrace)
    - Forensic --readonly mode with SHA-256 verification
-   - GO_VERSION: 1.17-1.23 amd64
+   - GO_VERSION: 1.17-1.24 amd64 and arm64
    - KERNEL: >= 5.8
 
    Upstream: https://github.com/Mutasem-mk4/gspy

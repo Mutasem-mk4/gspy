@@ -1,3 +1,11 @@
+gspy (0.2.1-1) unstable; urgency=medium
+
+  * Align package metadata with the supported Go 1.24 and arm64 targets.
+  * Add an installed-package DEP-8 CLI smoke test.
+  * Remove the obsolete duplicate Debian packaging directory.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Fri, 24 Jul 2026 14:00:00 +0300
+
 gspy (0.2.0-1) unstable; urgency=low
 
   * Migrated to cilium/ebpf v0.21.0 API.

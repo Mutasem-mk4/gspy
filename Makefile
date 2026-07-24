@@ -4,7 +4,7 @@
 # Makefile for gspy — forensic goroutine-to-syscall inspector
 #
 # Required tools:
-#   - Go >= 1.21
+#   - Go >= 1.24
 #   - clang >= 14 (for BPF C compilation via bpf2go)
 #   - bpftool (optional, for generating vmlinux.h)
 #
@@ -17,7 +17,7 @@
 .PHONY: generate build install uninstall clean lint test man
 
 # Version info
-VERSION    ?= 0.2.0
+VERSION    ?= 0.2.1
 GO_VERSION  = $(shell go version 2>/dev/null | awk '{print $$3}')
 DESTDIR    ?=
 
@@ -27,7 +27,7 @@ LDFLAGS = -s -w \
 	-X main.BuildGoVersion=$(GO_VERSION)
 
 # Generate BPF bytecode from C source using bpf2go.
-# Requires: clang >= 14, go >= 1.21, bpf2go
+# Requires: clang >= 14, Go >= 1.24, bpf2go
 # Produces: internal/bpf/gspy_bpfel.go, internal/bpf/gspy_bpfel.o
 # NOTE: GOFLAGS=-mod=mod is required because bpf2go is a build tool,
 # not vendored as a runtime dependency. When vendor/ exists, Go defaults

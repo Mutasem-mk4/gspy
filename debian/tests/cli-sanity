@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+gspy --help >/dev/null
+gspy --version | grep -F "gspy"

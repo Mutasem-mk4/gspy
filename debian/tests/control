@@ -1,0 +1,3 @@
+Tests: cli-sanity
+Depends: gspy
+Restrictions: superficial
