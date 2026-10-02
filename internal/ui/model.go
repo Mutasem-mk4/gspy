@@ -26,8 +26,8 @@ type TickMsg time.Time
 // PulseMsg triggers a 500ms heartbeat pulse animation.
 type PulseMsg time.Time
 
-// JsonSnapshotMsg triggers a state dump to disk.
-type JsonSnapshotMsg struct{ Filename string }
+// JSONSnapshotMsg triggers a state dump to disk.
+type JSONSnapshotMsg struct{ Filename string }
 
 // FlashMsg shows a temporary message in the footer.
 type FlashMsg string
@@ -165,7 +165,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.flash = ""
 		return m, nil
 
-	case JsonSnapshotMsg:
+	case JSONSnapshotMsg:
 		// The actual file I/O is handled by the main loop listening for this msg
 		// if we were in a complex architecture, but here we can just do it or
 		// let the tea.Program handle it. We'll send it up to main.
@@ -276,7 +276,7 @@ func (m *Model) handleSyscallEvent(evt bpf.SyscallEvent) {
 		// The model receives pre-resolved frame names when available.
 
 		m.table.UpdateRow(
-			evt.Gid,
+			evt.GID,
 			syscallName,
 			latencyUS,
 			frame,
@@ -289,19 +289,19 @@ func (m *Model) handleSyscallEvent(evt bpf.SyscallEvent) {
 			Syscall:   syscallName,
 			LatencyUS: latencyUS,
 			Frame:     frame,
-			Timestamp: evt.Ts,
+			Timestamp: evt.TS,
 		}
-		history := m.recentSyscalls[evt.Gid]
+		history := m.recentSyscalls[evt.GID]
 		if len(history) >= 20 {
 			history = history[1:]
 		}
-		m.recentSyscalls[evt.Gid] = append(history, record)
+		m.recentSyscalls[evt.GID] = append(history, record)
 
 	case bpf.EventGoroutineCreate:
-		m.table.SetState(evt.Gid, "created")
+		m.table.SetState(evt.GID, "created")
 
 	case bpf.EventGoroutineExit:
-		m.table.MarkDead(evt.Gid)
+		m.table.MarkDead(evt.GID)
 	}
 }
 

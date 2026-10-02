@@ -11,7 +11,7 @@ import (
 )
 
 func TestGIDOffsetTable(t *testing.T) {
-	// Verify offset lookup returns correct value for Go 1.17 through 1.24.
+	// Verify offset lookup returns correct value for Go 1.17 through 1.27.
 	tests := []struct {
 		goVersion  string
 		wantOffset uint64
@@ -34,6 +34,9 @@ func TestGIDOffsetTable(t *testing.T) {
 		{"go1.23.4", 160, true},
 		{"go1.24", 160, true},
 		{"go1.24.0", 160, true},
+		{"go1.25.0", 152, true},
+		{"go1.26.8", 152, true},
+		{"go1.27.1", 152, true},
 	}
 
 	for _, tt := range tests {
@@ -57,13 +60,13 @@ func TestGIDOffsetTable(t *testing.T) {
 		})
 	}
 
-	// Test unknown version — should return fallback offset with warning.
+	// Test unknown version — must refuse tracing without a verified offset.
 	t.Run("unknown_version", func(t *testing.T) {
 		offset, warning := GetGIDOffset("", "go1.99.0")
 
-		if offset != DefaultGIDOffset {
+		if offset != 0 {
 			t.Errorf("GetGIDOffset(unknown) offset = %d, want %d",
-				offset, DefaultGIDOffset)
+				offset, 0)
 		}
 
 		if warning == "" {
@@ -79,9 +82,9 @@ func TestGIDOffsetTable(t *testing.T) {
 	t.Run("unparseable_version", func(t *testing.T) {
 		offset, warning := GetGIDOffset("", "notaversion")
 
-		if offset != DefaultGIDOffset {
+		if offset != 0 {
 			t.Errorf("GetGIDOffset(unparseable) offset = %d, want %d",
-				offset, DefaultGIDOffset)
+				offset, 0)
 		}
 
 		if warning == "" {
@@ -222,7 +225,7 @@ func TestSupportedGoVersionRange(t *testing.T) {
 	if r == "" {
 		t.Error("SupportedGoVersionRange() should return non-empty string")
 	}
-	if !searchString(r, "1.17") || !searchString(r, "1.24") {
-		t.Errorf("SupportedGoVersionRange() = %q, should mention 1.17 and 1.24", r)
+	if !searchString(r, "1.17") || !searchString(r, "1.27") {
+		t.Errorf("SupportedGoVersionRange() = %q, should mention 1.17 and 1.27", r)
 	}
 }

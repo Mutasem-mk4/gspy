@@ -97,7 +97,7 @@ const capBPF = 39
 const capPERFMON = 38
 
 // CAP_SYS_ADMIN is Linux capability bit 21.
-const capSYS_ADMIN = 21
+const capSYSADMIN = 21
 
 // CheckCapabilities verifies that the current process has the required
 // capabilities for BPF operations.
@@ -119,7 +119,7 @@ func CheckCapabilities() error {
 
 	hasBPF := (capEff & (1 << capBPF)) != 0
 	hasPerfmon := (capEff & (1 << capPERFMON)) != 0
-	hasSysAdmin := (capEff & (1 << capSYS_ADMIN)) != 0
+	hasSysAdmin := (capEff & (1 << capSYSADMIN)) != 0
 
 	if (hasBPF && hasPerfmon) || hasSysAdmin {
 		return nil
@@ -185,7 +185,7 @@ func CheckKernelVersion() error {
 		return fmt.Errorf(
 			"unsupported kernel version %d.%d.\n\n"+
 				"gspy requires Linux >= 5.8 for BPF ring buffer support.\n"+
-				"Please upgrade your kernel or check if BPF is enabled (CONFIG_BPF=y).", major, minor)
+				"Please upgrade your kernel or check if BPF is enabled (CONFIG_BPF=y)", major, minor)
 	}
 
 	return nil

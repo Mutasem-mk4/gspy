@@ -43,6 +43,9 @@ var gidOffsetTableAMD64 = map[string]uint64{
 	"1.22": 152,
 	"1.23": 160,
 	"1.24": 160,
+	"1.25": 152,
+	"1.26": 152,
+	"1.27": 152,
 }
 
 var gidOffsetTableARM64 = map[string]uint64{
@@ -54,11 +57,10 @@ var gidOffsetTableARM64 = map[string]uint64{
 	"1.22": 152,
 	"1.23": 160,
 	"1.24": 160,
+	"1.25": 152,
+	"1.26": 152,
+	"1.27": 152,
 }
-
-// DefaultGIDOffset is the fallback offset used when the Go version is unknown
-// and DWARF lookup fails.
-const DefaultGIDOffset uint64 = 152
 
 // DetectGoVersion reads the target binary's ELF build information to extract
 // the Go version string (e.g., "go1.21.5").
@@ -73,7 +75,7 @@ func DetectGoVersion(binaryPath string) (string, error) {
 	}
 
 	if info.GoVersion == "" {
-		return "", fmt.Errorf("Go version not found in build info of %s",
+		return "", fmt.Errorf("go version not found in build info of %s",
 			binaryPath)
 	}
 
@@ -107,64 +109,46 @@ func ParseGoVersion(version string) (int, int, error) {
 	return major, minor, nil
 }
 
-// GetGIDOffset returns the goid field offset for the given Go version.
-// It first attempts a DWARF lookup in the target binary (most accurate),
-// then falls back to the hardcoded offset table, and finally to
-// DefaultGIDOffset with a warning.
-//
-// Returns (offset, warning_message). Warning is empty if offset is confirmed.
+// GetGIDOffset prefers the target binary's DWARF layout, then a verified table.
+// A zero offset with a diagnostic means tracing must not proceed.
 func GetGIDOffset(binaryPath string, goVersion string) (uint64, string) {
-	// Step 1: Try DWARF lookup (most accurate, always preferred).
 	if offset, err := DWARFLookupGoidOffset(binaryPath); err == nil {
 		return offset, ""
 	}
-
-	// Step 2: Select architecture-specific table.
+	arch := runtime.GOARCH
+	if binaryPath != "" {
+		binary, err := elf.Open(binaryPath)
+		if err != nil {
+			return 0, fmt.Sprintf("cannot inspect target ELF: %v", err)
+		}
+		defer binary.Close()
+		switch binary.Machine {
+		case elf.EM_X86_64:
+			arch = "amd64"
+		case elf.EM_AARCH64:
+			arch = "arm64"
+		default:
+			return 0, fmt.Sprintf("unsupported target architecture: %s", binary.Machine)
+		}
+	}
 	var table map[string]uint64
-	var archWarning string
-
-	switch runtime.GOARCH {
+	switch arch {
 	case "amd64":
 		table = gidOffsetTableAMD64
 	case "arm64":
 		table = gidOffsetTableARM64
 	default:
-		archWarning = fmt.Sprintf(
-			"WARNING: goid offsets are verified only for amd64 and arm64; "+
-				"current arch is %s — offset may be incorrect. "+
-				"Consider providing a binary with DWARF debug info.",
-			runtime.GOARCH)
-		table = gidOffsetTableAMD64 // Fallback to amd64 table
+		return 0, fmt.Sprintf("unsupported target architecture: %s", arch)
 	}
-
-	// Step 3: Parse version and look up in table.
-	_, minor, err := ParseGoVersion(goVersion)
+	major, minor, err := ParseGoVersion(goVersion)
 	if err != nil {
-		warning := fmt.Sprintf(
-			"WARNING: could not parse Go version %q, "+
-				"using default goid offset %d",
-			goVersion, DefaultGIDOffset)
-		if archWarning != "" {
-			warning = archWarning + "\n" + warning
-		}
-		return DefaultGIDOffset, warning
+		return 0, fmt.Sprintf("cannot determine goid offset: %v", err)
 	}
-
-	// Construct major.minor key (e.g., "1.21")
-	key := fmt.Sprintf("1.%d", minor)
+	key := fmt.Sprintf("%d.%d", major, minor)
 	if offset, ok := table[key]; ok {
-		return offset, archWarning
+		return offset, ""
 	}
-
-	// Step 4: Unknown version — use default with warning.
-	warning := fmt.Sprintf(
-		"WARNING: unknown Go version %s (parsed as %s), "+
-			"using default goid offset %d — goroutine IDs may be incorrect",
-		goVersion, key, DefaultGIDOffset)
-	if archWarning != "" {
-		warning = archWarning + "\n" + warning
-	}
-	return DefaultGIDOffset, warning
+	return 0, fmt.Sprintf("unknown Go version %s: no verified goid offset; rebuild target with DWARF information", goVersion)
 }
 
 // DWARFLookupGoidOffset searches the DWARF debug information in the target
@@ -318,5 +302,5 @@ func IsGoVersion(s string) bool {
 
 // SupportedGoVersionRange returns the range of Go versions with verified offsets.
 func SupportedGoVersionRange() string {
-	return "1.17 – 1.24 (amd64 and arm64 verified)"
+	return "1.17 – 1.27 (amd64 and arm64 verified)"
 }

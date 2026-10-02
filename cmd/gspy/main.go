@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -63,18 +64,20 @@ func main() {
 }
 
 func run() int {
+	flags := flag.NewFlagSet("gspy", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
 	// ── Flag parsing ────────────────────────────────────────────
 	var (
-		flagTop      = flag.Bool("top", false, "Sort by syscall count (default)")
-		flagLatency  = flag.Bool("latency", false, "Sort by highest syscall latency")
-		flagFilter   = flag.String("filter", "all", "Filter: io | net | sched | all")
-		flagReadonly = flag.Bool("readonly", false, "Forensic mode: zero writes, log SHA-256")
-		flagJSON     = flag.Bool("json", false, "Emit newline-delimited JSON to stdout")
-		flagDebug    = flag.Bool("debug", false, "Show BPF verifier log and map stats")
-		flagVersion  = flag.Bool("version", false, "Show version information")
+		flagTop      = flags.Bool("top", false, "Sort by syscall count (default)")
+		flagLatency  = flags.Bool("latency", false, "Sort by highest syscall latency")
+		flagFilter   = flags.String("filter", "all", "Filter: io | net | sched | all")
+		flagReadonly = flags.Bool("readonly", false, "Forensic mode: zero writes, log SHA-256")
+		flagJSON     = flags.Bool("json", false, "Emit newline-delimited JSON to stdout")
+		flagDebug    = flags.Bool("debug", false, "Show BPF verifier log and map stats")
+		flagVersion  = flags.Bool("version", false, "Show version information")
 	)
 
-	flag.Usage = func() {
+	flags.Usage = func() {
 		fmt.Fprintf(os.Stderr, `gspy — forensic goroutine-to-syscall inspector for live Go processes
 
 USAGE:
@@ -90,7 +93,7 @@ USAGE:
 
 OPTIONS:
 `)
-		flag.PrintDefaults()
+		flags.PrintDefaults()
 		fmt.Fprintf(os.Stderr, `
 CAPABILITIES:
   Requires CAP_BPF + CAP_PERFMON (or CAP_SYS_ADMIN). Run as root, or grant:
@@ -104,7 +107,13 @@ SUPPORTED GO VERSIONS:
 `, attach.SupportedGoVersionRange())
 	}
 
-	flag.Parse()
+	if err := parseCommandLine(flags, os.Args[1:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return exitOK
+		}
+		fmt.Fprintf(os.Stderr, "gspy: %v\n", err)
+		return exitFatal
+	}
 
 	// ── Version output ──────────────────────────────────────────
 	if *flagVersion {
@@ -113,9 +122,9 @@ SUPPORTED GO VERSIONS:
 	}
 
 	// ── PID argument ────────────────────────────────────────────
-	args := flag.Args()
-	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "gspy: missing required argument: <pid>\n")
+	args := flags.Args()
+	if len(args) != 1 {
+		fmt.Fprintf(os.Stderr, "gspy: expected exactly one argument: <pid>\n")
 		fmt.Fprintf(os.Stderr, "Usage: gspy <pid> [options]\n")
 		fmt.Fprintf(os.Stderr, "Run 'gspy --help' for full usage.\n")
 		return exitFatal
@@ -170,14 +179,14 @@ SUPPORTED GO VERSIONS:
 	goVersion, err := attach.DetectGoVersion(binaryPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gspy: warning: could not detect Go version: %v\n", err)
-		fmt.Fprintf(os.Stderr, "gspy: assuming default goid offset %d\n",
-			attach.DefaultGIDOffset)
-		goVersion = "unknown"
+
+		return exitFatal
 	}
 
 	gidOffset, warning := attach.GetGIDOffset(binaryPath, goVersion)
 	if warning != "" {
 		fmt.Fprintf(os.Stderr, "gspy: %s\n", warning)
+		return exitFatal
 	}
 
 	// ── Step 5: Readonly mode — SHA-256 ─────────────────────────
@@ -216,6 +225,7 @@ SUPPORTED GO VERSIONS:
 
 	// ── Step 9: Load BPF programs ───────────────────────────────
 	mgr := bpf.NewManager()
+	defer mgr.Close()
 	if err := mgr.LoadAndAttach(pid, binaryPath, gidOffset); err != nil {
 		fmt.Fprintf(os.Stderr, "gspy: BPF load/attach failed: %v\n", err)
 		if *flagDebug {
@@ -223,7 +233,6 @@ SUPPORTED GO VERSIONS:
 		}
 		return exitFatal
 	}
-	defer mgr.Close()
 
 	if *flagDebug {
 		fmt.Fprintf(os.Stderr, "%s\n", mgr.DebugInfo())
@@ -294,7 +303,7 @@ func runJSON(ctx context.Context, mgr bpf.Manager,
 		}
 
 		obj := struct {
-			Ts        float64 `json:"ts"`
+			TS        float64 `json:"ts"`
 			PID       int     `json:"pid"`
 			GID       uint64  `json:"gid"`
 			TID       uint32  `json:"tid"`
@@ -305,9 +314,9 @@ func runJSON(ctx context.Context, mgr bpf.Manager,
 			Frame     string  `json:"frame"`
 			Readonly  bool    `json:"readonly,omitempty"`
 		}{
-			Ts:        float64(evt.Ts) / 1e9,
+			TS:        float64(evt.TS) / 1e9,
 			PID:       pid,
-			GID:       evt.Gid,
+			GID:       evt.GID,
 			TID:       evt.Tid,
 			State:     "syscall",
 			Syscall:   bpf.SyscallName(evt.SyscallNr),

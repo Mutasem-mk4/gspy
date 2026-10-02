@@ -4,7 +4,7 @@
 # Makefile for gspy — forensic goroutine-to-syscall inspector
 #
 # Required tools:
-#   - Go >= 1.24
+#   - Go >= 1.26.8
 #   - clang >= 14 (for BPF C compilation via bpf2go)
 #   - bpftool (optional, for generating vmlinux.h)
 #
@@ -26,22 +26,13 @@ LDFLAGS = -s -w \
 	-X main.Version=$(VERSION) \
 	-X main.BuildGoVersion=$(GO_VERSION)
 
-# Generate BPF bytecode from C source using bpf2go.
-# Requires: clang >= 14, Go >= 1.24, bpf2go
-# Produces: internal/bpf/gspy_bpfel.go, internal/bpf/gspy_bpfel.o
-# NOTE: GOFLAGS=-mod=mod is required because bpf2go is a build tool,
-# not vendored as a runtime dependency. When vendor/ exists, Go defaults
-# to -mod=vendor which blocks module resolution for tools.
+# bpf2go is pinned by the go.mod tool directive and included by go mod vendor.
 generate:
-	@which bpf2go > /dev/null 2>&1 || \
-		(echo "ERROR: bpf2go not found in PATH." && \
-		 echo "Install it with: go install github.com/cilium/ebpf/cmd/bpf2go@v0.14.0" && \
-		 exit 1)
-	GOFLAGS=-mod=mod go generate ./internal/bpf/...
+	GOOS=$(shell go env GOHOSTOS) GOARCH=$(shell go env GOHOSTARCH) go generate ./internal/bpf/...
 
 # Build the gspy binary.
 # Architectures supported: amd64, arm64 (set via GOARCH)
-build:
+build: generate
 	GOOS=linux GOARCH=$(GOARCH) go build -trimpath -ldflags="$(LDFLAGS)" -o bin/gspy ./cmd/gspy
 
 # Build without generating BPF (for CI/testing when generated files exist).
@@ -93,3 +84,9 @@ check-build:
 
 # Quick development cycle: test + build.
 dev: test build
+
+# Prepare a source release containing dependencies for offline Debian builds.
+source-dist:
+	go mod vendor
+	mkdir -p dist
+	tar --exclude=.git --exclude=dist --exclude=bin --exclude='obj-*' --exclude=debian/gspy --exclude=debian/.debhelper -czf dist/gspy-$(VERSION)-source.tar.gz .

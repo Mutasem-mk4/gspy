@@ -152,3 +152,19 @@ eBPF kernel ecosystem interactions mandate GPL adherence. All source files expli
 
 ---
 Developed by **Mutasem Kharma (معتصم خرما)** — [GitHub](https://github.com/Mutasem-mk4) | [Portfolio](https://mutasem-portfolio.vercel.app/) | [Twitter/X](https://twitter.com/mutasem_mk4)
+
+### Runtime layout and offline packaging
+
+Go 1.25, 1.26, and 1.27 runtime layouts are checked against real compiled ELF
+files for amd64 and arm64, with and without DWARF information. Unknown stripped
+runtime versions are refused; rebuild the target with DWARF information to derive
+the offset. CLI options work before or after the PID.
+
+Build with Go 1.26.8 or newer. `bpf2go` is a pinned Go tool in `go.mod`, so no
+separate global installation is needed. `make build` generates the BPF bindings.
+For offline Debian builds, run `make source-dist` before building from the source
+archive. The archive includes dependencies and their upstream license files;
+Debian rules reject source trees without vendor/modules.txt and disable downloads.
+
+Linux ARM64 resolves syscall names using the native generic syscall ABI. CI checks
+real tracing against an announced goroutine ID on native amd64 and arm64 runners.

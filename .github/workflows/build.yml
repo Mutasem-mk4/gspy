@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.24"
+  GO_VERSION: "1.26.8"
   CLANG_VERSION: "16"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   GOFLAGS: "-mod=mod"
@@ -56,7 +56,6 @@ jobs:
 
       - name: Generate BPF bindings
         run: |
-          go install github.com/cilium/ebpf/cmd/bpf2go@v0.17.1
           export PATH=$PATH:$(go env GOPATH)/bin
           make generate
 
@@ -72,10 +71,10 @@ jobs:
           echo "✓ All source files have SPDX headers"
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@971e284b6050e8a5849b72094c50ab08da042db8 # v6
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
-          version: v1.64.2
-          args: --timeout=5m --build-tags=testing
+          version: v2.14.0
+          args: --timeout=5m
 
   # ─────────────────────────────────────────────────────────
   # Job 2: Test — run unit tests with mock BPF
@@ -106,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.21', '1.22', '1.23', '1.24']
+        go-version: ['go1.23.0', 'go1.24.0', 'go1.25.0', 'go1.26.8', 'go1.27.1']
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
@@ -114,9 +113,11 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v6
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Test ABI logic
+        env:
+          GSPY_ABI_TOOLCHAIN: ${{ matrix.go-version }}
         run: go test -v -tags=testing ./internal/attach/...
 
   # ─────────────────────────────────────────────────────────
@@ -141,11 +142,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-
-      - name: Install bpf2go
-        run: |
-          go install github.com/cilium/ebpf/cmd/bpf2go@v0.17.1
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
       - name: Install BPF toolchain
         run: |
@@ -208,8 +204,16 @@ jobs:
   # Job 4: Integration test — real BPF against real process
   # ─────────────────────────────────────────────────────────
   integration:
-    name: Integration test (real BPF)
-    runs-on: ubuntu-latest
+    name: Integration test (real BPF ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     needs: [build-linux]
     steps:
       - name: Checkout
@@ -224,7 +228,7 @@ jobs:
       - name: Download binary artifact
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v8
         with:
-          name: gspy-linux-amd64
+          name: gspy-linux-${{ matrix.arch }}
           path: bin/
 
       - name: Build test target process
@@ -234,14 +238,21 @@ jobs:
           package main
 
           import (
-            "net/http"
+            "net"
             "time"
+            "runtime"
+            "fmt"
+            "strings"
           )
 
           func main() {
             go func() {
+              stack := make([]byte, 64)
+              n := runtime.Stack(stack, false)
+              fmt.Printf("expected_gid=%s\n", strings.Fields(string(stack[:n]))[1])
               for {
-                http.Get("http://127.0.0.1:19999")
+                conn, _ := net.DialTimeout("tcp", "127.0.0.1:19999", time.Second)
+                if conn != nil { conn.Close() }
                 time.Sleep(100 * time.Millisecond)
               }
             }()
@@ -259,7 +270,7 @@ jobs:
           sudo sysctl -w kernel.unprivileged_bpf_disabled=0 || true
 
           # Start the test target process
-          /tmp/gspy-testproc &
+          /tmp/gspy-testproc > /tmp/gspy-target-gid.txt &
           TESTPID=$!
           echo "Test target PID: $TESTPID"
           sleep 2
@@ -268,22 +279,14 @@ jobs:
           kill -0 $TESTPID || { echo "ERROR: test process not running"; exit 1; }
 
           # Run gspy in JSON mode for 5 seconds (--json avoids TUI/TTY issues)
-          sudo timeout 5 ./bin/gspy $TESTPID --json > /tmp/gspy-out.json 2>/tmp/gspy-err.txt || true
-
-          # Kill the test process
+          before=$(sha256sum /tmp/gspy-testproc)
+          status=0
+          sudo timeout --signal=INT 8 ./bin/gspy $TESTPID --json --readonly > /tmp/gspy-out.json 2>/tmp/gspy-err.txt || status=$?
           kill $TESTPID 2>/dev/null || true
-
-          # Print output for debugging
-          echo "=== gspy stdout ==="
-          head -20 /tmp/gspy-out.json || true
-          echo "=== gspy stderr ==="
-          cat /tmp/gspy-err.txt || true
-
-          # Check if BPF/perf is available on this runner
-          if grep -q "TUI error\|could not open\|BPF.*fail\|perf_event" /tmp/gspy-err.txt 2>/dev/null; then
-            echo "WARN: BPF/perf not fully available on this runner. Skipping JSON validation."
-            echo "This is expected on some GitHub Actions runners with restricted BPF."
-            exit 0
+          cat /tmp/gspy-err.txt
+          test "$before" = "$(sha256sum /tmp/gspy-testproc)"
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            exit "$status"
           fi
 
           # Validate: output must exist and be non-empty
@@ -292,9 +295,9 @@ jobs:
             exit 1
           fi
 
-          # At least one valid JSON line must exist with gid > 0
+          # Match a syscall to the exact goroutine ID reported by the target.
           python3 -c "
-          import json, sys
+          import json, sys, re
           events = []
           with open('/tmp/gspy-out.json') as f:
             for line in f:
@@ -307,12 +310,59 @@ jobs:
           if not events:
             print('FAIL: no parseable JSON events')
             sys.exit(1)
-          valid = [e for e in events if e.get('gid', 0) > 0]
+          expected = int(re.search(r'expected_gid=(\d+)', open('/tmp/gspy-target-gid.txt').read()).group(1))
+          valid = [e for e in events if e.get('gid') == expected and e.get('syscall') == 'connect']
+          if not all(e.get('readonly') is True for e in events):
+            sys.exit('FAIL: readonly option after PID was not applied')
           if not valid:
-            print(f'FAIL: no events with gid > 0. Got {len(events)} events total.')
+            print(f'FAIL: no connect event from expected goroutine {expected}. Got {len(events)} events total.')
             sys.exit(1)
           print(f'PASS: {len(valid)} events with valid GID out of {len(events)} total')
           "
+
+  vulnerability-check:
+    needs: build-linux
+    name: Vulnerability check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+      - uses: actions/download-artifact@v8
+        with:
+          name: gspy-linux-amd64
+          path: bin/
+      - run: govulncheck -mode=binary bin/gspy
+
+  debian-package:
+    name: Offline Debian build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y debhelper clang llvm libbpf-dev libelf-dev linux-libc-dev lintian
+      - name: Prepare offline source
+        run: go mod vendor
+      - name: Build without network access
+        run: |
+          chmod +x debian/rules
+          sudo env PATH="$PATH" unshare --net dpkg-buildpackage -us -uc -b -d
+      - name: Validate Debian package
+        run: |
+          lintian --fail-on error ../gspy_*.deb
+          sudo dpkg -i ../gspy_*.deb
+          sh debian/tests/cli-sanity
+          mkdir -p dist
+          cp ../gspy_*.deb dist/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gspy-debian
+          path: dist/*.deb
 
   release:
     name: Release

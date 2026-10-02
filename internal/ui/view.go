@@ -257,7 +257,7 @@ func RenderHelp(width, height int) string {
 	}
 
 	for _, k := range keys {
-		_, _ = b.WriteString(fmt.Sprintf("  %-12s  %s\n", k[0], k[1]))
+		_, _ = fmt.Fprintf(&b, "  %-12s  %s\n", k[0], k[1])
 	}
 
 	_, _ = b.WriteString("\n")
