@@ -16,7 +16,7 @@ sha256sums=('b4b2d9a7708ae6454f24be8dd880fca69df14e26e34759ab92f115072735d1be')
 build() {
     cd "$pkgname-$_commit"
     export CGO_ENABLED=0
-    export GOFLAGS="-mod=readonly -modcacherw"
+    export GOFLAGS="-mod=readonly -modcacherw -buildvcs=false"
     make build VERSION="$pkgver"
 }
 
