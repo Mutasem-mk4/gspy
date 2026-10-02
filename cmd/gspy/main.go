@@ -39,7 +39,7 @@ import (
 
 // Build-time variables set via -ldflags.
 var (
-	Version        = "0.1.1"
+	Version        = "0.2.2"
 	BuildGoVersion = "unknown"
 )
 

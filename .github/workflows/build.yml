@@ -364,6 +364,27 @@ jobs:
           name: gspy-debian
           path: dist/*.deb
 
+  arch-package:
+    name: Arch source package
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install build tools
+        run: pacman -Syu --noconfirm git go nodejs clang llvm libbpf
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build the pinned source package
+        run: |
+          cmp packaging/PKGBUILD packaging/blackarch/PKGBUILD
+          useradd -m builduser
+          chown -R builduser:builduser packaging
+          su builduser -c "cd packaging && makepkg -sf --noconfirm"
+      - name: Upload Arch package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: gspy-arch-package
+          path: packaging/*.pkg.tar.zst
+
   release:
     name: Release
     runs-on: ubuntu-latest
@@ -430,5 +451,4 @@ jobs:
           generate_release_notes: true
           files: |
             release-dist/*
-
 

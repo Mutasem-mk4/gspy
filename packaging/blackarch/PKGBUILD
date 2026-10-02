@@ -1,43 +1,32 @@
 # Maintainer: Mutasem Kharma <mutasem@gspy.dev>
 # SPDX-License-Identifier: GPL-2.0-only
 pkgname=gspy
-pkgver=0.2.0
+pkgver=0.2.2
 pkgrel=1
+_commit=687d90fb8c3399388b7490168159e41c125551cc
 pkgdesc="Forensic goroutine-to-syscall inspector for live Go processes using eBPF."
 arch=('x86_64' 'aarch64')
 url="https://github.com/Mutasem-mk4/gspy"
-license=('GPL2')
-groups=('blackarch' 'blackarch-forensic')
-depends=('glibc')
-makedepends=('go>=1.21' 'clang>=14' 'llvm>=14' 'libbpf' 'bpf')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('a9202eac2dce840d37c65a198bfb0f4d90cd4a06e8aefa543dbf6759c842bb72')
-
-prepare() {
-    cd "$pkgname-$pkgver"
-    export GOPATH="$srcdir/go"
-    export PATH="$GOPATH/bin:$PATH"
-    go install github.com/cilium/ebpf/cmd/bpf2go@v0.17.1
-}
+license=('GPL-2.0-only')
+groups=('blackarch' 'blackarch-forensic' 'blackarch-debugger')
+makedepends=('go>=1.26.8' 'clang>=14' 'llvm>=14' 'libbpf' 'linux-api-headers')
+source=("$pkgname-$_commit.tar.gz::$url/archive/$_commit.tar.gz")
+sha256sums=('b4b2d9a7708ae6454f24be8dd880fca69df14e26e34759ab92f115072735d1be')
 
 build() {
-    cd "$pkgname-$pkgver"
+    cd "$pkgname-$_commit"
     export CGO_ENABLED=0
-    export GOPATH="$srcdir/go"
-    export PATH="$GOPATH/bin:$PATH"
-    export GOFLAGS="-mod=mod"
-
-    make generate
-    make build-only VERSION=$pkgver
+    export GOFLAGS="-mod=readonly -modcacherw"
+    make build VERSION="$pkgver"
 }
 
 check() {
-    cd "$pkgname-$pkgver"
-    go test -v -tags=testing ./...
+    cd "$pkgname-$_commit"
+    go test -tags=testing ./...
 }
 
 package() {
-    cd "$pkgname-$pkgver"
+    cd "$pkgname-$_commit"
     install -Dm755 bin/gspy "$pkgdir/usr/bin/gspy"
     install -Dm644 man/gspy.1 "$pkgdir/usr/share/man/man1/gspy.1"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

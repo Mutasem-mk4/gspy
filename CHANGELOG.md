@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-02
+
+### Fixed
+- Apply CLI options after the PID, including JSON and readonly modes.
+- Refuse unknown Go runtime layouts and verify Go 1.23–1.27 offsets on AMD64 and ARM64.
+- Decode ARM64 syscalls using its native ABI and close tracing resources reliably.
+- Vendor the pinned BPF generator for offline Debian source builds.
+- Update Go and affected dependencies; require successful native tracing in CI.
+
 ### Added
 - **Official BlackArch Linux Support**: gspy is now an official package in the BlackArch repository.
 - **Verified arm64 Support**: Goroutine ID (`goid`) offsets for Go 1.17–1.24 verified on `aarch64`.
