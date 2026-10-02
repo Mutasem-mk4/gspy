@@ -4,8 +4,9 @@
 package bpf
 
 import (
-	"golang.org/x/sys/unix"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestNativeSyscallNames(t *testing.T) {
