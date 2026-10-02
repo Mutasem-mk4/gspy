@@ -347,7 +347,7 @@ jobs:
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y debhelper clang llvm libbpf-dev libelf-dev linux-libc-dev lintian
       - name: Prepare offline source
-        run: go mod vendor
+        run: make source-dist
       - name: Build without network access
         run: |
           chmod +x debian/rules
@@ -362,7 +362,9 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: gspy-debian
-          path: dist/*.deb
+          path: |
+            dist/*.deb
+            dist/*-source.tar.gz
 
   arch-package:
     name: Arch source package
@@ -451,4 +453,3 @@ jobs:
           generate_release_notes: true
           files: |
             release-dist/*
-
