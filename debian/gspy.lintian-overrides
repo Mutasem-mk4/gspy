@@ -1,0 +1,2 @@
+# Go links a static executable (CGO_ENABLED=0) without a libc dependency.
+gspy: statically-linked-binary [usr/bin/gspy]

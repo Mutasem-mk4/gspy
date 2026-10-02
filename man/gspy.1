@@ -114,11 +114,11 @@ The goid offset is determined by:
 DWARF debug information in the target binary (most accurate).
 .IP 2.
 A hardcoded offset table verified against Go runtime source code
-for Go 1.17 through 1.24 on amd64 and arm64.
+for Go 1.17 through 1.27 on amd64 and arm64.
 .IP 3.
 A fallback default of 152 bytes with a logged warning.
 .SH SUPPORTED GO VERSIONS
-Go 1.17 through 1.24 on amd64 and arm64 (verified).
+Go 1.17 through 1.27 on amd64 and arm64 (verified).
 Other architectures are unsupported.
 .SH KERNEL REQUIREMENTS
 .IP \(bu 2
@@ -216,3 +216,6 @@ GPL-2.0-only
 .PP
 This is free software; see the source for copying conditions. There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+.PP
+Unknown stripped runtime versions are refused rather than traced using a guessed offset.

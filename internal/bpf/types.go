@@ -41,10 +41,10 @@ type GoroutineMeta struct {
 // SyscallEvent matches struct syscall_event in gspy.bpf.c.
 // sizeof = 48 bytes (8+4+4+8+4+4+8+8), naturally aligned.
 type SyscallEvent struct {
-	Ts        uint64
+	TS        uint64
 	Pid       uint32
 	Tid       uint32
-	Gid       uint64
+	GID       uint64
 	SyscallNr uint32
 	EventType uint32
 	LatencyNs uint64

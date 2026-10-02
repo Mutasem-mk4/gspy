@@ -1,34 +1,34 @@
 #!/usr/bin/make -f
+include /usr/share/dpkg/pkg-info.mk
 
-export DH_GOPKG := github.com/Mutasem-mk4/gspy
 export CGO_ENABLED := 0
-export GOPATH := $(CURDIR)/obj-$(DEB_BUILD_GNU_TYPE)/go
-export PATH := $(GOPATH)/bin:$(PATH)
+export GOFLAGS := -mod=vendor
+export GOPROXY := off
+export GOSUMDB := off
+export GOTOOLCHAIN := local
+export GOCACHE := $(CURDIR)/debian/.cache/go-build
 
 %:
-	dh $@ --buildsystem=golang --builddirectory=obj-$(DEB_BUILD_GNU_TYPE)
+	dh $@
 
 override_dh_auto_configure:
-	# bpf2go must be available from Build-Depends or pre-installed.
-	# Debian policy PROHIBITS network access during builds.
-	# Package: golang-github-cilium-ebpf-dev provides bpf2go.
-	@which bpf2go > /dev/null 2>&1 || \
-		(echo "ERROR: bpf2go not found in PATH." && \
-		 echo "Install golang-github-cilium-ebpf-dev or run:" && \
-		 echo "  go install github.com/cilium/ebpf/cmd/bpf2go@v0.17.1" && \
-		 exit 1)
-	dh_auto_configure
+	test -f vendor/modules.txt
 
 override_dh_auto_build:
-	# Generate BPF bytecode first (offline — no network access)
 	make generate
-	# Build the binary with DESTDIR-aware install
 	make build-only VERSION=$(DEB_VERSION_UPSTREAM)
 
 override_dh_auto_install:
-	install -D -m 0755 bin/gspy $(CURDIR)/debian/gspy/usr/bin/gspy
-	install -D -m 0644 man/gspy.1 $(CURDIR)/debian/gspy/usr/share/man/man1/gspy.1
+	install -D -m 0755 bin/gspy debian/gspy/usr/bin/gspy
+	install -D -m 0644 man/gspy.1 debian/gspy/usr/share/man/man1/gspy.1
 
 override_dh_auto_test:
-	# Run tests with mock BPF to avoid needing root/BPF in build environment
 	go test -v -tags=testing ./...
+
+override_dh_auto_clean:
+	rm -rf bin debian/.cache
+	rm -f internal/bpf/gspy_*_bpfel.go internal/bpf/gspy_*_bpfel.o
+
+override_dh_dwz:
+
+override_dh_strip:

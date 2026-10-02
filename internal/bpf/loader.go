@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -target amd64,arm64 -type goroutine_meta -type syscall_event gspy ../../bpf/gspy.bpf.c -- -I/usr/include -I../../bpf -O2 -g
+//go:generate go tool bpf2go -target amd64,arm64 -type goroutine_meta -type syscall_event gspy ../../bpf/gspy.bpf.c -- -I/usr/include -I../../bpf -O2 -g
 
 // realManager is the production BPF Manager implementation.
 // It loads eBPF programs from compiled bytecode, attaches them to
