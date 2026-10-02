@@ -15,6 +15,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/cilium/ebpf"
@@ -165,46 +166,33 @@ func (m *realManager) PollEvents(ctx context.Context, handler func(SyscallEvent)
 		return errors.New("cannot poll events: BPF reader is nil (LoadAndAttach not called?)")
 	}
 
-	errCh := make(chan error, 1)
-
-	// Close the reader when context is cancelled to unblock Read().
+	reader := m.reader
+	finished := make(chan struct{})
+	defer close(finished)
 	go func() {
-		<-ctx.Done()
-		if m.reader != nil {
-			m.reader.Close()
+		select {
+		case <-ctx.Done():
+			if err := reader.Close(); err != nil {
+				log.Printf("close ring buffer: %v", err)
+			}
+		case <-finished:
 		}
 	}()
-
-	go func() {
-		for {
-			record, err := m.reader.Read()
-			if err != nil {
-				if errors.Is(err, ringbuf.ErrClosed) {
-					errCh <- nil
-					return
-				}
-				errCh <- fmt.Errorf("reading ring buffer: %w", err)
-				return
+	for {
+		record, err := reader.Read()
+		if err != nil {
+			if errors.Is(err, ringbuf.ErrClosed) {
+				return ctx.Err()
 			}
-
-			var evt SyscallEvent
-			if err := binary.Read(
-				bytes.NewReader(record.RawSample),
-				binary.LittleEndian, &evt,
-			); err != nil {
-				continue // skip malformed events
-			}
-
-			handler(evt)
+			return fmt.Errorf("reading ring buffer: %w", err)
 		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errCh:
-		return err
+		var evt SyscallEvent
+		if err := binary.Read(bytes.NewReader(record.RawSample), binary.LittleEndian, &evt); err != nil {
+			continue
+		}
+		handler(evt)
 	}
+
 }
 
 // GetGoroutineMeta reads goroutine metadata from the BPF goroutine_meta_map.

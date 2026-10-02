@@ -4,7 +4,7 @@
 # Makefile for gspy — forensic goroutine-to-syscall inspector
 #
 # Required tools:
-#   - Go >= 1.24
+#   - Go >= 1.26.8
 #   - clang >= 14 (for BPF C compilation via bpf2go)
 #   - bpftool (optional, for generating vmlinux.h)
 #
