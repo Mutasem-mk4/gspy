@@ -204,8 +204,16 @@ jobs:
   # Job 4: Integration test — real BPF against real process
   # ─────────────────────────────────────────────────────────
   integration:
-    name: Integration test (real BPF)
-    runs-on: ubuntu-latest
+    name: Integration test (real BPF ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     needs: [build-linux]
     steps:
       - name: Checkout
@@ -220,7 +228,7 @@ jobs:
       - name: Download binary artifact
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v8
         with:
-          name: gspy-linux-amd64
+          name: gspy-linux-${{ matrix.arch }}
           path: bin/
 
       - name: Build test target process
@@ -230,14 +238,21 @@ jobs:
           package main
 
           import (
-            "net/http"
+            "net"
             "time"
+            "runtime"
+            "fmt"
+            "strings"
           )
 
           func main() {
             go func() {
+              stack := make([]byte, 64)
+              n := runtime.Stack(stack, false)
+              fmt.Printf("expected_gid=%s\n", strings.Fields(string(stack[:n]))[1])
               for {
-                http.Get("http://127.0.0.1:19999")
+                conn, _ := net.DialTimeout("tcp", "127.0.0.1:19999", time.Second)
+                if conn != nil { conn.Close() }
                 time.Sleep(100 * time.Millisecond)
               }
             }()
@@ -255,7 +270,7 @@ jobs:
           sudo sysctl -w kernel.unprivileged_bpf_disabled=0 || true
 
           # Start the test target process
-          /tmp/gspy-testproc &
+          /tmp/gspy-testproc > /tmp/gspy-target-gid.txt &
           TESTPID=$!
           echo "Test target PID: $TESTPID"
           sleep 2
@@ -264,10 +279,12 @@ jobs:
           kill -0 $TESTPID || { echo "ERROR: test process not running"; exit 1; }
 
           # Run gspy in JSON mode for 5 seconds (--json avoids TUI/TTY issues)
+          before=$(sha256sum /tmp/gspy-testproc)
           status=0
-          sudo timeout --signal=INT 8 ./bin/gspy $TESTPID --json > /tmp/gspy-out.json 2>/tmp/gspy-err.txt || status=$?
+          sudo timeout --signal=INT 8 ./bin/gspy $TESTPID --json --readonly > /tmp/gspy-out.json 2>/tmp/gspy-err.txt || status=$?
           kill $TESTPID 2>/dev/null || true
           cat /tmp/gspy-err.txt
+          test "$before" = "$(sha256sum /tmp/gspy-testproc)"
           if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
             exit "$status"
           fi
@@ -278,9 +295,9 @@ jobs:
             exit 1
           fi
 
-          # At least one valid JSON line must exist with gid > 0
+          # Match a syscall to the exact goroutine ID reported by the target.
           python3 -c "
-          import json, sys
+          import json, sys, re
           events = []
           with open('/tmp/gspy-out.json') as f:
             for line in f:
@@ -293,9 +310,12 @@ jobs:
           if not events:
             print('FAIL: no parseable JSON events')
             sys.exit(1)
-          valid = [e for e in events if e.get('gid', 0) > 0]
+          expected = int(re.search(r'expected_gid=(\d+)', open('/tmp/gspy-target-gid.txt').read()).group(1))
+          valid = [e for e in events if e.get('gid') == expected and e.get('syscall') == 'connect']
+          if not all(e.get('readonly') is True for e in events):
+            sys.exit('FAIL: readonly option after PID was not applied')
           if not valid:
-            print(f'FAIL: no events with gid > 0. Got {len(events)} events total.')
+            print(f'FAIL: no connect event from expected goroutine {expected}. Got {len(events)} events total.')
             sys.exit(1)
           print(f'PASS: {len(valid)} events with valid GID out of {len(events)} total')
           "

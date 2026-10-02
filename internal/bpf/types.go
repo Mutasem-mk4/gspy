@@ -94,7 +94,8 @@ func StateString(state uint32) string {
 	}
 }
 
-// SyscallNames maps amd64 Linux syscall numbers to human-readable names.
+// SyscallNames maps native Linux syscall numbers to names.
+// This table is the amd64/default layout; Linux arm64 supplies its own table.
 // Reference: arch/x86/entry/syscalls/syscall_64.tbl in the Linux kernel.
 var SyscallNames = map[uint32]string{
 	0: "read", 1: "write", 2: "open", 3: "close",

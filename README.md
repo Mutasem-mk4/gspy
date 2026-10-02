@@ -165,3 +165,6 @@ separate global installation is needed. `make build` generates the BPF bindings.
 For offline Debian builds, run `make source-dist` before building from the source
 archive. The archive includes dependencies and their upstream license files;
 Debian rules reject source trees without vendor/modules.txt and disable downloads.
+
+Linux ARM64 resolves syscall names using the native generic syscall ABI. CI checks
+real tracing against an announced goroutine ID on native amd64 and arm64 runners.
