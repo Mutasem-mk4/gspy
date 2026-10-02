@@ -28,7 +28,7 @@ LDFLAGS = -s -w \
 
 # bpf2go is pinned by the go.mod tool directive and included by go mod vendor.
 generate:
-	go generate ./internal/bpf/...
+	GOOS=$(shell go env GOHOSTOS) GOARCH=$(shell go env GOHOSTARCH) go generate ./internal/bpf/...
 
 # Build the gspy binary.
 # Architectures supported: amd64, arm64 (set via GOARCH)

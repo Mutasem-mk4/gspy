@@ -5,7 +5,7 @@ go 1.26.8
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/cilium/ebpf v0.21.0
+	github.com/cilium/ebpf v0.22.0
 	golang.org/x/sys v0.45.0
 )
 
