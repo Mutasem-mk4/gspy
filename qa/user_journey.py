@@ -57,7 +57,11 @@ class Terminal:
         if self.pid == 0:
             os.chdir(cwd)
             os.environ['TERM'] = 'xterm-256color'
-            os.execvp(str(argv[0]), [str(x) for x in argv])
+            try:
+                os.execvp(str(argv[0]), [str(x) for x in argv])
+            except OSError as exc:
+                os.write(2, (str(exc)+'\n').encode())
+                os._exit(127)
         fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 120, 0, 0))
         self.status = None
 
@@ -74,6 +78,12 @@ class Terminal:
                 if not chunk:
                     break
                 self.raw.extend(chunk)
+                if b']11;?' in chunk:
+                    os.write(self.fd, b'\x1b]11;rgb:0000/0000/0000\x1b\\')
+                if b']10;?' in chunk:
+                    os.write(self.fd, b'\x1b]10;rgb:ffff/ffff/ffff\x1b\\')
+                if b'\x1b[6n' in chunk:
+                    os.write(self.fd, b'\x1b[1;1R')
                 self.stream.feed(chunk.decode('utf-8', errors='replace'))
             pid, status = os.waitpid(self.pid, os.WNOHANG)
             if pid:
@@ -135,7 +145,7 @@ require(int(target.stdout.readline()) == target.pid, 'Target PID witness mismatc
 def gspy_tui():
     terminal = Terminal(['sudo','-n','gspy',str(target.pid)], args.out)
     try:
-        screen = terminal.read(3)
+        screen = terminal.read(6)
         terminal.save('gspy-live')
         require('GID' in screen and 'connect' in screen, 'No live goroutine/syscall table: '+screen)
         screen = terminal.key(b'?')
@@ -150,7 +160,9 @@ def gspy_tui():
         terminal.key(b'\n')
         terminal.save('gspy-snapshot')
         dumps = list(args.out.glob('gspy_dump_*.json'))
-        require(dumps and json.loads(dumps[0].read_text()), 'Snapshot keyboard shortcut did not write useful JSON')
+        require(dumps, 'Snapshot keyboard shortcut did not create a file')
+        snapshot = command('read-gspy-snapshot', ['sudo','-n','cat',dumps[0]])
+        require(snapshot.returncode == 0 and json.loads(snapshot.stdout), 'Snapshot has no useful JSON')
         terminal.key(b'q')
         terminal.read(2)
         terminal.save('gspy-quit')
@@ -192,12 +204,12 @@ time.sleep(.2)
                        '--out',args.out/'case','--summary',args.out/'report.md','--',
                        'python3',script,args.out/'witness.txt'])
     require(response.returncode == 0, response.stderr)
-    require('file.open' in response.stdout and 'net.connect' in response.stdout, 'Human timeline lacks observed activity')
-    summary = (args.out/'report.md').read_text()
+    require('file.open' in response.stderr and 'net.connect' in response.stderr, 'Human timeline lacks observed activity')
+    summary = command('read-investigation-report', ['sudo','-n','cat',args.out/'report.md']).stdout
     require('witness.txt' in summary, 'Readable report omits the known file')
-    tree = (args.out/'case/process-tree.txt').read_text()
+    tree = command('read-process-tree', ['sudo','-n','cat',args.out/'case/process-tree.txt']).stdout
     require(tree.strip(), 'Empty process tree')
-    records = [json.loads(line) for line in (args.out/'case/events.jsonl').read_text().splitlines()]
+    records = [json.loads(line) for line in command('read-evidence', ['sudo','-n','cat',args.out/'case/events.jsonl']).stdout.splitlines()]
     require(len({r['pid'] for r in records})>=2, 'Child process missing from evidence')
     response = command('procscope-invalid-command',['sudo','-n','procscope','--','qa-command-does-not-exist'])
     require(response.returncode != 0 and 'command not found' in response.stderr, response.stderr)
@@ -225,17 +237,20 @@ check('procscope user: attach existing PID, stream JSON, Ctrl+C without killing 
 def mcp_user():
     cli = root/'mcp-env/bin/mcpwn-red'
     server = root/'mcpwn'
-    response = command('mcpwn-probe',[cli,'probe','--transport','stdio','--mcpwn-command',server])
+    (root/'mcpwn.yaml').write_text('tools:\n  - name: journey_echo\n    command: echo\n')
+    server_env = {**os.environ, 'PATH': str(root)+os.pathsep+os.environ['PATH']}
+    response = command('mcpwn-probe',[cli,'probe','--transport','stdio'], env=server_env)
     require(response.returncode == 0, response.stderr)
     response = command('mcpwn-assessment',[cli,'scan','--all','--transport','stdio','--confirm-write',
-                       '--mcpwn-command',server,'--output-dir',args.out/'mcp-results'], timeout=90)
+                       '--mcpwn-command',server,'--output-dir',args.out/'mcp-results'], timeout=90, env=server_env)
     require(response.returncode == 1, f'Expected findings exit code, got {response.returncode}: {response.stderr}')
     assessment = json.loads((args.out/'mcp-results/results.json').read_text())
     require(assessment['assessment_kind']=='deployment', 'Deployment assessment mislabeled')
     response = command('mcpwn-html-report',[cli,'report','--input',args.out/'mcp-results/results.json',
                        '--format','html','--output',args.out/'mcp-report.html'])
     require(response.returncode == 0 and (args.out/'mcp-report.html').stat().st_size>0, response.stderr)
-    response = command('mcpwn-missing-server',[cli,'probe','--mcpwn-command','qa-mcpwn-does-not-exist'])
+    response = command('mcpwn-missing-server',[cli,'probe','--transport','stdio'],
+                       env={**os.environ, 'PATH': '/usr/bin:/bin'})
     require(response.returncode != 0 and 'Traceback' not in response.stderr, response.stderr)
     return assessment['summary']
 check('mcpwn-red user: real server probe, assessment, HTML report and missing-server diagnostic', mcp_user)
