@@ -13,6 +13,13 @@ apt-cache policy golang-go golang-1.26-go python3-mcp sbuild clang libbpf-dev > 
 apt-get install -y sbuild schroot debootstrap devscripts git-buildpackage lintian autopkgtest python3
 keyring=/usr/share/keyrings/parrot-archive-keyring.gpg
 test -r "$keyring"
+# Parrot's packaged debootstrap currently lacks an echo alias. Echo is based
+# on Debian 13; this selects the trixie bootstrap algorithm, not Debian APT.
+if [ ! -e /usr/share/debootstrap/scripts/echo ]; then
+  test -e /usr/share/debootstrap/scripts/trixie
+  ln -s trixie /usr/share/debootstrap/scripts/echo
+  printf '%s\n' 'echo alias -> trixie bootstrap script; all packages remain from signed Parrot APT' > /results/debootstrap-alias.txt
+fi
 chroot=/var/lib/sbuild/echo-clean
 sbuild-createchroot --arch="$arch" --include=parrot-archive-keyring --keyring="$keyring" \
   echo "$chroot" https://deb.parrot.sh/parrot
