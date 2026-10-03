@@ -33,12 +33,19 @@ chroot "$chroot" apt-cache policy golang-go golang-1.26-go python3-mcp > /result
 cp "$chroot/etc/apt/sources.list" /results/chroot-sources.list
 name=$(schroot --list | sed -n 's/^chroot:\(echo-.*-sbuild\)$/\1/p' | head -n1)
 test -n "$name"
-# Every build and test gets a disposable overlay of the pristine template.
-sed -i 's/^union-type=none$/union-type=overlay/' /etc/schroot/chroot.d/echo-*-sbuild-*
+# File chroots extract a fresh template per session and work without nested
+# overlayfs support in the container's host kernel.
+tar -C "$chroot" -czf "${chroot}.tar.gz" .
+config=$(find /etc/schroot/chroot.d -name "echo-${arch}-sbuild-*" -print -quit)
+test -n "$config"
+sed -i '/^directory=/d; /^union-type=/d; s/^type=directory$/type=file/' "$config"
+printf 'file=%s.tar.gz\n' "$chroot" >> "$config"
 schroot -i -c "$name" > /results/schroot-info.txt
 useradd -m -s /bin/bash package-builder
 usermod -a -G sbuild package-builder
 printf '%s\n' '$chroot_mode = "schroot";' '$run_lintian = 1;' > /home/package-builder/.sbuildrc
+session=$(runuser -u package-builder -- schroot --begin-session -c "$name")
+runuser -u package-builder -- schroot --end-session -c "$session"
 mkdir -p /build
 chown package-builder:package-builder /build
 printf 'tool\tsource\tbuild\tautopkgtest\n' > /results/status.tsv
@@ -81,7 +88,7 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   set -e
   test_exit=NA
   if [ "$build_exit" -eq 0 ]; then
-    # A new schroot session restores the pristine template, separate from sbuild.
+    # A new file-chroot session extracts the pristine template separately.
     set +e
     autopkgtest "$parent/${tool}_${deb_version}.dsc" "$parent"/*.deb \
       --output-dir=/results/"$tool"/autopkgtest -- schroot "$name" \
