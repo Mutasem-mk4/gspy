@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import signal
 import struct
@@ -149,6 +150,12 @@ def gspy_tui():
         terminal.save('gspy-live')
         require('GID' in screen and str(target.pid) in screen and 'syscall' in screen,
                 'No live goroutine/syscall table: '+screen)
+        terminal.key(b'j')
+        terminal.key(b'k')
+        screen = terminal.key(b'\r')
+        terminal.save('gspy-expanded')
+        require('Stack Trace:' in screen, 'Enter did not open goroutine details')
+        terminal.key(b'\x1b')
         screen = terminal.key(b'?')
         terminal.save('gspy-help')
         require('filter' in screen.lower() and 'quit' in screen.lower(), 'Help overlay unavailable')
@@ -187,9 +194,18 @@ def gspy_demo():
                 break
         terminal.save('gspy-readme-demo')
         require('q:quit' in screen, 'README demo never reached the TUI: '+terminal.raw.decode(errors='replace'))
+        witness = re.search(rb'Target is running with PID ([0-9]+)', terminal.raw)
+        require(witness is not None, 'Demo did not announce its PID')
+        demo_pid = int(witness.group(1))
+        cmdline = Path(f'/proc/{demo_pid}/cmdline').read_bytes().split(b'\0')
+        require(len(cmdline) > 2, 'Demo target is missing the temporary log argument')
+        demo_log = Path(os.fsdecode(cmdline[1]))
+        require(demo_log.exists(), 'Demo log was not created')
         terminal.key(b'q')
         terminal.read(2)
         require(terminal.status == 0, f'Demo quit failed: {terminal.status}')
+        require(not Path(f'/proc/{demo_pid}').exists(), 'Demo left its target process running')
+        require(not demo_log.exists(), 'Demo left its temporary log behind')
     finally:
         terminal.close()
 check('gspy README quick-start demo runs and cleans up', gspy_demo)
