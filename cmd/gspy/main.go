@@ -196,7 +196,7 @@ SUPPORTED GO VERSIONS:
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "gspy: warning: SHA-256 computation failed: %v\n", err)
 		} else {
-			fmt.Fprintf(os.Stderr, "READONLY MODE: no writes to target process memory\n")
+			fmt.Fprintf(os.Stderr, "READONLY MODE: executable file hash recorded; uprobes still instrument execution\n")
 			fmt.Fprintf(os.Stderr, "SHA-256(%s): %s\n", binaryPath, sha256Hash)
 		}
 	}

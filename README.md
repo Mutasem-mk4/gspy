@@ -61,13 +61,13 @@ graph TD
     D -->|Emit Payload| RingBuf[(16MB BPF RingBuf)]:::bpf
     
     RingBuf -->|Poll| A
-    A -->|process_vm_readv| Mem[Process Memory]
-    Mem -->|Resolve Stack Symbols| TUI[Terminal UI]:::user
+    A -->|Read ELF symbols and PC table| Symbols[Executable File]
+    Symbols -->|Resolve Captured PC| TUI[Terminal UI]:::user
 ```
 
 1. **Uprobes:** Hook `runtime.execute` to track Go scheduler context switches, extracting the goroutine ID (`goid`) from the `runtime.g` struct.
 2. **Tracepoints:** Intercept `sys_enter`/`sys_exit`, joining the OS Thread ID (TID) against the active goroutine map.
-3. **Userspace Symbolization:** Walks the target's ELF tables via `process_vm_readv` to map raw instruction pointers to human-readable Go functions.
+3. **Userspace Symbolization:** Reads the executable's ELF symbols and Go PC table to resolve captured instruction pointers. Process-memory reads recover probe context; they do not read the ELF symbol table.
 
 For a deeper dive into the engineering, read: [**Why Ptrace is Dead for Go Forensics**](docs/blog/why-ptrace-is-dead-for-go-forensics.md)
 
@@ -89,6 +89,10 @@ This builds `gspy`, starts a synthetic target that attempts localhost connection
 gspy rigidly tracks the internal Application Binary Interface (ABI) of the Go compiler.
 
 ABI tests compile real ELF targets with Go 1.23.0, 1.24.0, 1.25.0, 1.26.8, and 1.27.1 for AMD64 and ARM64. ABI offset checks alone do not verify live attachment. The manual portfolio QA additionally exercises live stripped targets built with Go 1.23.0, 1.26.8, and 1.27.1 on native Linux runners.
+
+If DWARF does not provide `runtime.g.goid` and the runtime is absent from the verified offset table, gspy exits before attaching BPF probes. The diagnostic identifies the unknown version and asks for DWARF or a supported runtime; it never guesses an offset. DWARF-derived offsets are not a guarantee that every other runtime detail is compatible.
+
+If DWARF does not provide `runtime.g.goid` and the runtime is absent from the verified offset table, gspy exits before attaching BPF probes. The diagnostic identifies the unknown version and asks for DWARF or a supported runtime; it never guesses an offset. DWARF-derived offsets are not a guarantee that every other runtime detail is compatible.
 
 Compiler patch releases and different kernels can behave differently. Consult the latest [CI results](https://github.com/Mutasem-mk4/gspy/actions) before relying on a particular combination.
 

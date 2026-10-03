@@ -148,7 +148,7 @@ func GetGIDOffset(binaryPath string, goVersion string) (uint64, string) {
 	if offset, ok := table[key]; ok {
 		return offset, ""
 	}
-	return 0, fmt.Sprintf("unknown Go version %s: no verified goid offset; rebuild target with DWARF information", goVersion)
+	return 0, fmt.Sprintf("unknown Go version %s: no verified goid offset; tracing refused. Use a target with DWARF information or a supported Go runtime; do not guess offsets", goVersion)
 }
 
 // DWARFLookupGoidOffset searches the DWARF debug information in the target
