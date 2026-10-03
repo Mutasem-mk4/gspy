@@ -46,6 +46,12 @@ jobs:
           go build -o ../mcpwn ./cmd/mcpwn
       - name: Follow installed CLI and README user journeys in real terminals
         run: mcp-env/bin/python qa/user_journey.py --out journey-results
+      - name: Make root-owned evidence collectable without changing privacy modes
+        if: always()
+        run: |
+          if [ -d journey-results ]; then
+            sudo chown -R "$(id -u):$(id -g)" journey-results
+          fi
       - name: Collect user-visible transcripts and terminal screens
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

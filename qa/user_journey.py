@@ -62,6 +62,8 @@ class Terminal:
         self.status = None
 
     def read(self, duration=1):
+        if self.status is not None:
+            return '\n'.join(self.screen.display)
         deadline = time.monotonic()+duration
         while time.monotonic() < deadline:
             if select.select([self.fd], [], [], .1)[0]:
@@ -77,6 +79,10 @@ class Terminal:
             if pid:
                 self.status = os.waitstatus_to_exitcode(status)
                 break
+        if self.status is None:
+            pid, status = os.waitpid(self.pid, os.WNOHANG)
+            if pid:
+                self.status = os.waitstatus_to_exitcode(status)
         return '\n'.join(self.screen.display)
 
     def key(self, sequence):
