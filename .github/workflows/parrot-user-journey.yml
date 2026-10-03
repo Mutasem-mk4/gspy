@@ -1,0 +1,93 @@
+name: Parrot VM installed user journey
+on:
+  workflow_dispatch:
+    inputs:
+      gspy_package_run:
+        required: true
+      gspy_ref:
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  parrot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          repository: Mutasem-mk4/mcpwn-red
+          ref: 'b8657bf6b76c7dbf4de63f9dbf2fa927ff47cf48'
+          path: payload/mcpwn-red-source
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+        with:
+          go-version: '1.26.8'
+      - name: Prepare installable packages and genuine server
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GSPY_PACKAGE_RUN: ${{ inputs.gspy_package_run }}
+          GSPY_REF: ${{ inputs.gspy_ref }}
+        run: |
+          mkdir -p payload/packages/gspy payload/packages/procscope payload/gspy-source
+          gh run download "$GSPY_PACKAGE_RUN" --repo Mutasem-mk4/gspy --name gspy-debian --dir payload/packages/gspy
+          gh run download 37092621968 --repo Mutasem-mk4/procscope --name procscope-deb --dir payload/packages/procscope
+          git archive "$GSPY_REF" | tar -x -C payload/gspy-source
+          cp -a qa payload/qa
+          cp -a "$(go env GOROOT)" payload/go
+          git clone https://gitlab.com/parrotsec/project/mcpwn.git mcpwn-source
+          git -C mcpwn-source checkout a5d0bbb4e2ec2f0e27404543e67f825fb98bad4e
+          (cd mcpwn-source && CGO_ENABLED=0 go build -o ../payload/mcpwn ./cmd/mcpwn)
+      - name: Download and verify official Parrot Home 7.3 VM image
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 ovmf libguestfs-tools unzip
+          curl -fL --retry 3 --max-time 900 https://deb.parrot.sh/parrot/iso/7.3/Parrot-home-7.3_amd64.qcow2.zip -o parrot.zip
+          printf '%s  %s\n' c8a57b7b56208e26d080fcc0b97c2f73ffdfad2c472c98e2cd2d05722e6840de parrot.zip | sha256sum -c -
+          unzip -q parrot.zip -d parrot-image
+          find parrot-image -type f -name '*.qcow2' -print > disk-path.txt
+          test "$(wc -l < disk-path.txt)" -eq 1
+      - name: Inject test service into disposable guest
+        env:
+          LIBGUESTFS_BACKEND: direct
+        run: |
+          disk=$(cat disk-path.txt)
+          sudo -E virt-copy-in -a "$disk" payload /opt
+          sudo -E virt-customize -a "$disk" \
+            --copy-in qa/parrot-journey.service:/etc/systemd/system \
+            --run-command 'ln -s /etc/systemd/system/parrot-journey.service /etc/systemd/system/multi-user.target.wants/parrot-journey.service' \
+            --run-command 'systemctl set-default multi-user.target'
+      - name: Boot real Parrot kernel and run installed terminal workflows
+        run: |
+          disk=$(cat disk-path.txt)
+          cp /usr/share/OVMF/OVMF_VARS_4M.fd parrot-vars.fd
+          acceleration=tcg
+          if [ -e /dev/kvm ]; then acceleration=kvm; fi
+          mkdir -p parrot-results
+          printf '%s\n' "$acceleration" > parrot-results/acceleration.txt
+          sudo timeout 1500 qemu-system-x86_64 -accel "$acceleration" -m 3072 -smp 2 \
+            -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+            -drive if=pflash,format=raw,file=parrot-vars.fd \
+            -drive file="$disk",format=qcow2,if=virtio \
+            -nic user,model=virtio-net-pci -display none -monitor none \
+            -serial file:parrot-results/serial.log -no-reboot
+      - name: Collect guest results and verify completion
+        if: always()
+        env:
+          LIBGUESTFS_BACKEND: direct
+        run: |
+          if [ -s disk-path.txt ]; then
+            disk=$(cat disk-path.txt)
+            mkdir -p parrot-results
+            sudo -E virt-copy-out -a "$disk" /opt/payload/parrot-results parrot-results/
+            sudo chown -R "$(id -u):$(id -g)" parrot-results
+            test "$(cat parrot-results/parrot-results/exit-code.txt)" = 0
+            python3 -c 'import json; r=json.load(open("parrot-results/parrot-results/journey-results/user-journey.json")); assert len(r["results"]) == 7 and all(x["status"] == "PASS" for x in r["results"])'
+          else
+            exit 1
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: parrot-vm-user-journey
+          path: parrot-results/
