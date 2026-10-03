@@ -22,13 +22,13 @@ jobs:
         if: inputs.revised_packaging
         with:
           repository: Mutasem-mk4/mcpwn-red
-          ref: '2c0711ba7c67273341f32d2f6b8810dc7685810e'
+          ref: 'aedd0e4cc83e4f67d669c57c306655cdef62d45d'
           path: packaging-source/mcpwn-red
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         if: inputs.revised_packaging
         with:
           repository: Mutasem-mk4/procscope
-          ref: 'packaging/parrot-clean-build'
+          ref: 'af601fa127524f52b37206e6b8790c9f04dd6c73'
           path: packaging-source/procscope
       - name: Obtain unchanged released sources
         env:

@@ -20,7 +20,7 @@ if [ ! -e /usr/share/debootstrap/scripts/echo ]; then
   ln -s trixie /usr/share/debootstrap/scripts/echo
   printf '%s\n' 'echo alias -> trixie bootstrap script; all packages remain from signed Parrot APT' > /results/debootstrap-alias.txt
 fi
-chroot=/var/lib/sbuild/echo-clean
+chroot=/var/lib/sbuild/echo-${arch}-sbuild
 sbuild-createchroot --arch="$arch" --include=parrot-archive-keyring --keyring="$keyring" \
   echo "$chroot" https://deb.parrot.sh/parrot
 cat > "$chroot/etc/apt/sources.list" <<EOF
@@ -33,6 +33,8 @@ chroot "$chroot" apt-cache policy golang-go golang-1.26-go python3-mcp > /result
 cp "$chroot/etc/apt/sources.list" /results/chroot-sources.list
 name=$(schroot --list | sed -n 's/^chroot:\(echo-.*-sbuild\)$/\1/p' | head -n1)
 test -n "$name"
+# Every build and test gets a disposable overlay of the pristine template.
+sed -i 's/^union-type=none$/union-type=overlay/' /etc/schroot/chroot.d/echo-*-sbuild-*
 schroot -i -c "$name" > /results/schroot-info.txt
 useradd -m -s /bin/bash package-builder
 usermod -a -G sbuild package-builder
@@ -65,6 +67,7 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   source_exit=$?
   set -e
   if [ "$source_exit" -ne 0 ]; then
+    cat /results/"$tool"/source.log
     printf '%s\t%s\tNA\tNA\n' "$tool" "$source_exit" >> /results/status.tsv
     failed=1
     continue
@@ -85,13 +88,18 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
       > /results/"$tool"/autopkgtest.log 2>&1
     test_exit=$?
     set -e
+    if [ "$test_exit" -ne 0 ]; then tail -n 120 /results/"$tool"/autopkgtest.log; fi
     if [ "$test_exit" -ne 0 ] && [ "$test_exit" -ne 8 ]; then failed=1; fi
   else
+    tail -n 120 /results/"$tool"/sbuild.log
     failed=1
   fi
   printf '%s\t%s\t%s\t%s\n' "$tool" "$source_exit" "$build_exit" "$test_exit" >> /results/status.tsv
   find "$parent" -maxdepth 1 -type f \( -name '*.deb' -o -name '*.dsc' -o -name '*.changes' -o -name '*.buildinfo' -o -name '*.tar.*' -o -name '*.build' \) \
-    -exec cp {} /results/"$tool"/ \;
+    -print0 | while IFS= read -r -d '' file; do
+      filename=$(basename "$file" | tr ':' '-')
+      cp "$file" /results/"$tool"/"$filename"
+    done
 done
 cat /results/status.tsv
 exit "$failed"

@@ -3,7 +3,7 @@ Section: misc
 Priority: optional
 Maintainer: Mutasem Kharma <mutasem@gspy.dev>
 Build-Depends: debhelper-compat (= 13),
-               golang-go (>= 2:1.26~),
+               golang-1.26-go (>= 1.26.8~),
                clang (>= 14),
                llvm (>= 14),
                libbpf-dev,
