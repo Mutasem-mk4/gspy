@@ -20,10 +20,14 @@ func TestCategoryActivitySurvivesLaterSyscallsAndExpires(t *testing.T) {
 		{FilterNet, "connect"}, {FilterIO, "write"}, {FilterSched, "futex"},
 	} {
 		t.Run(string(scenario.filter), func(t *testing.T) {
+			unrelated := "getpid"
+			if scenario.filter == FilterNet {
+				unrelated = "epoll_ctl"
+			}
 			table := NewTable()
 			table.Filter = scenario.filter
 			table.UpdateRow(GoroutineRow{GID: 7, Syscall: scenario.syscall, Frame: "main.work", LatencyUS: 12}, start)
-			table.UpdateRow(GoroutineRow{GID: 7, Syscall: "getpid", Frame: "runtime.other", LatencyUS: 99}, start.Add(time.Second))
+			table.UpdateRow(GoroutineRow{GID: 7, Syscall: unrelated, Frame: "runtime.other", LatencyUS: 99}, start.Add(time.Second))
 			table.Refresh(start.Add(5*time.Second - time.Nanosecond))
 			if len(table.Rows) != 1 {
 				t.Fatal("matching activity disappeared after an unrelated syscall")
@@ -38,7 +42,7 @@ func TestCategoryActivitySurvivesLaterSyscallsAndExpires(t *testing.T) {
 			}
 			table.Filter = FilterAll
 			table.Refresh(start.Add(5 * time.Second))
-			if len(table.Rows) != 1 || table.Rows[0].Syscall != "getpid" {
+			if len(table.Rows) != 1 || table.Rows[0].Syscall != unrelated {
 				t.Fatal("category expiration lost the unfiltered latest event")
 			}
 		})

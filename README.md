@@ -140,6 +140,10 @@ hide that activity. The displayed syscall, latency, and frame belong to that
 matching event; `COUNT` remains the total syscall count since attachment. `all`
 shows the latest event without this time window. JSONL filtering still applies
 to individual events, not to this TUI window.
+Generic descriptor operations (`epoll_*`, `poll`, `select`, and `sendfile`) are
+classified as I/O, since they do not establish that the descriptors are sockets.
+The network category contains socket-specific syscalls. Neither category proves
+that a connection succeeded.
 
 `G` counts observed goroutines with known IDs, not every goroutine in the target.
 Unattributed events appear under `?` and retain `gid=0` in saved JSON. The detail

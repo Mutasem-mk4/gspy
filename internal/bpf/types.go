@@ -214,7 +214,11 @@ var IOSyscalls = map[string]bool{
 	"fchmod": true, "fchmodat": true, "chown": true,
 	"fchown": true, "statx": true, "newfstatat": true,
 	"preadv": true, "pwritev": true, "fallocate": true,
-	"syncfs": true,
+	"syncfs":     true,
+	"epoll_wait": true, "epoll_pwait": true,
+	"epoll_ctl": true, "epoll_create1": true,
+	"sendfile": true, "poll": true, "ppoll": true,
+	"pselect6": true, "select": true,
 }
 
 // NetSyscalls is the set of syscall names classified as network operations.
@@ -225,10 +229,6 @@ var NetSyscalls = map[string]bool{
 	"recvmsg": true, "shutdown": true, "getsockname": true,
 	"getpeername": true, "socketpair": true,
 	"setsockopt": true, "getsockopt": true,
-	"epoll_wait": true, "epoll_pwait": true,
-	"epoll_ctl": true, "epoll_create1": true,
-	"sendfile": true, "poll": true, "ppoll": true,
-	"pselect6": true, "select": true,
 }
 
 // SchedSyscalls is the set of syscall names classified as scheduling operations.
