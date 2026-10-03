@@ -54,7 +54,7 @@ jobs:
         run: |
           disk=$(cat disk-path.txt)
           sudo -E virt-copy-in -a "$disk" payload /opt
-          sudo -E virt-customize -a "$disk" \
+          sudo -E virt-customize --no-network -a "$disk" \
             --copy-in qa/parrot-journey.service:/etc/systemd/system \
             --run-command 'ln -s /etc/systemd/system/parrot-journey.service /etc/systemd/system/multi-user.target.wants/parrot-journey.service' \
             --run-command 'systemctl set-default multi-user.target'

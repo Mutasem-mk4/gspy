@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       gspy_ref:
-        default: '32a5732ad5b6febdfdd60cf1542cbcf9c99a4434'
+        default: '498991b785015338091f3f1ccab9fd5594fed0f1'
         required: true
       gspy_package_run:
-        default: '37123140742'
+        default: '37123591567'
         required: true
 permissions:
   contents: read
