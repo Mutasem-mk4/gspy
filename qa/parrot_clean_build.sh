@@ -52,10 +52,14 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   else
     tar -xzf "/input/$tool-$version-source.tar.gz" -C "$source"
   fi
+  if [ -f "/input/$tool-debian.tar" ]; then
+    tar -xf "/input/$tool-debian.tar" -C "$source"
+  fi
   tar --exclude=./debian -czf "$parent/${tool}_${version}.orig.tar.gz" -C "$source" .
   chmod +x "$source/debian/rules"
   chown -R package-builder:package-builder "$parent"
   cd "$source"
+  deb_version=$(dpkg-parsechangelog -S Version)
   set +e
   runuser -u package-builder -- dpkg-source -b . > /results/"$tool"/source.log 2>&1
   source_exit=$?
@@ -68,7 +72,7 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   cd "$parent"
   set +e
   runuser -u package-builder -- sbuild --chroot="$name" --dist=echo --arch="$arch" \
-    --no-run-autopkgtest --no-source --no-sign "$parent/${tool}_${version}-1.dsc" \
+    --no-run-autopkgtest --no-source --no-sign "$parent/${tool}_${deb_version}.dsc" \
     > /results/"$tool"/sbuild.log 2>&1
   build_exit=$?
   set -e
@@ -76,7 +80,7 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   if [ "$build_exit" -eq 0 ]; then
     # A new schroot session restores the pristine template, separate from sbuild.
     set +e
-    autopkgtest "$parent/${tool}_${version}-1.dsc" "$parent"/*.deb \
+    autopkgtest "$parent/${tool}_${deb_version}.dsc" "$parent"/*.deb \
       --output-dir=/results/"$tool"/autopkgtest -- schroot "$name" \
       > /results/"$tool"/autopkgtest.log 2>&1
     test_exit=$?
