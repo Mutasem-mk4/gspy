@@ -7,10 +7,12 @@
 package ui
 
 import (
+	"cmp"
 	"encoding/json"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Mutasem-mk4/gspy/internal/bpf"
 )
@@ -84,7 +86,15 @@ type GoroutineRow struct {
 // Table manages the goroutine table state including all rows,
 // the visible (filtered+sorted) rows, selection cursor, sort mode,
 // and filter mode.
+const activityWindow = 5 * time.Second
+
+type recentActivity struct {
+	row    GoroutineRow
+	seenAt time.Time
+}
+
 type Table struct {
+	activity map[uint64]map[FilterMode]recentActivity
 	// AllRows contains every goroutine observed since attach, keyed by GID.
 	AllRows map[uint64]*GoroutineRow
 
@@ -110,33 +120,41 @@ type Table struct {
 // NewTable creates a new empty table.
 func NewTable() *Table {
 	return &Table{
-		AllRows: make(map[uint64]*GoroutineRow),
-		Sort:    SortByCount,
-		SortDir: SortDesc,
-		Filter:  FilterAll,
-		Width:   80,
-		Height:  24,
+		AllRows:  make(map[uint64]*GoroutineRow),
+		activity: make(map[uint64]map[FilterMode]recentActivity),
+		Sort:     SortByCount,
+		SortDir:  SortDesc,
+		Filter:   FilterAll,
+		Width:    80,
+		Height:   24,
 	}
 }
 
 // UpdateRow updates or creates a goroutine row from a syscall event.
 // Called for every EVENT_SYSCALL event.
-func (t *Table) UpdateRow(gid uint64, syscall string, latencyUS int64,
-	frame string, framePC uint64, state string) {
-
-	row, ok := t.AllRows[gid]
-	if !ok {
-		row = &GoroutineRow{GID: gid}
-		t.AllRows[gid] = row
+func (t *Table) UpdateRow(event GoroutineRow, observedAt time.Time) {
+	previous := t.AllRows[event.GID]
+	if previous != nil {
+		event.Count = previous.Count
+		if event.State == "" {
+			event.State = previous.State
+		}
 	}
+	event.Count++
+	t.AllRows[event.GID] = &event
+	t.recordActivity(event, observedAt)
+}
 
-	row.Syscall = syscall
-	row.LatencyUS = latencyUS
-	row.Count++
-	row.Frame = frame
-	row.FramePC = framePC
-	if state != "" {
-		row.State = state
+func (t *Table) recordActivity(event GoroutineRow, observedAt time.Time) {
+	categories := t.activity[event.GID]
+	if categories == nil {
+		categories = make(map[FilterMode]recentActivity)
+		t.activity[event.GID] = categories
+	}
+	for _, category := range []FilterMode{FilterIO, FilterNet, FilterSched} {
+		if matchesCategory(category, event.Syscall) {
+			categories[category] = recentActivity{row: event, seenAt: observedAt}
+		}
 	}
 }
 
@@ -159,16 +177,25 @@ func (t *Table) MarkDead(gid uint64) {
 }
 
 // Refresh rebuilds the visible Rows by applying filter and sort.
-func (t *Table) Refresh() {
+func (t *Table) Refresh(now time.Time) {
+	selected := t.SelectedRow()
 	t.Rows = t.Rows[:0]
 
 	for _, row := range t.AllRows {
-		if t.passesFilter(row) {
-			t.Rows = append(t.Rows, row)
+		if visible := t.filteredRow(row, now); visible != nil {
+			t.Rows = append(t.Rows, visible)
 		}
 	}
 
 	t.sortRows()
+	if selected != nil {
+		for index, row := range t.Rows {
+			if row.GID == selected.GID {
+				t.SelectedIdx = index
+				break
+			}
+		}
+	}
 
 	// Clamp selection index.
 	if t.SelectedIdx >= len(t.Rows) {
@@ -179,40 +206,50 @@ func (t *Table) Refresh() {
 	}
 }
 
-// passesFilter returns true if the row should be visible under the current filter.
-func (t *Table) passesFilter(row *GoroutineRow) bool {
-	switch t.Filter {
-	case FilterAll:
-		return true
-	case FilterIO:
-		return bpf.IOSyscalls[row.Syscall]
-	case FilterNet:
-		return bpf.NetSyscalls[row.Syscall]
-	case FilterSched:
-		return bpf.SchedSyscalls[row.Syscall]
-	default:
-		return true
+// A category view retains its last matching event independently of later syscalls.
+func (t *Table) filteredRow(row *GoroutineRow, now time.Time) *GoroutineRow {
+	if t.Filter == FilterAll || t.Filter == "" {
+		return row
 	}
+	activity, ok := t.activity[row.GID][t.Filter]
+	if !ok || now.Sub(activity.seenAt) >= activityWindow {
+		return nil
+	}
+	visible := activity.row
+	visible.Count = row.Count
+	visible.State = row.State
+	return &visible
 }
 
-// sortRows sorts the visible rows by the current sort mode and direction.
+func matchesCategory(category FilterMode, syscall string) bool {
+	switch category {
+	case FilterIO:
+		return bpf.IOSyscalls[syscall]
+	case FilterNet:
+		return bpf.NetSyscalls[syscall]
+	case FilterSched:
+		return bpf.SchedSyscalls[syscall]
+	}
+	return false
+}
+
 func (t *Table) sortRows() {
-	sort.SliceStable(t.Rows, func(i, j int) bool {
-		var less bool
+	sort.Slice(t.Rows, func(i, j int) bool {
+		left, right := t.Rows[i], t.Rows[j]
+		order := cmp.Compare(left.Count, right.Count)
 		switch t.Sort {
-		case SortByCount:
-			less = t.Rows[i].Count < t.Rows[j].Count
 		case SortByLatency:
-			less = t.Rows[i].LatencyUS < t.Rows[j].LatencyUS
+			order = cmp.Compare(left.LatencyUS, right.LatencyUS)
 		case SortByGID:
-			less = t.Rows[i].GID < t.Rows[j].GID
-		default:
-			less = t.Rows[i].Count < t.Rows[j].Count
+			order = cmp.Compare(left.GID, right.GID)
+		}
+		if order == 0 {
+			return left.GID < right.GID
 		}
 		if t.SortDir == SortDesc {
-			return !less
+			return order > 0
 		}
-		return less
+		return order < 0
 	})
 }
 
@@ -268,7 +305,11 @@ func (t *Table) SelectedRow() *GoroutineRow {
 
 // GoroutineCount returns the total number of known goroutines.
 func (t *Table) GoroutineCount() int {
-	return len(t.AllRows)
+	count := len(t.AllRows)
+	if _, unknown := t.AllRows[0]; unknown {
+		count--
+	}
+	return count
 }
 
 // VisibleCount returns the number of visible (filtered) rows.

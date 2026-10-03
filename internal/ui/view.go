@@ -121,7 +121,7 @@ func RenderHeader(width int, pid int, binary string, goVersion string,
 
 	// Add filter indicator
 	if filter != FilterAll {
-		left += fmt.Sprintf("   %s", filter)
+		left += fmt.Sprintf("   %s (last 5s)", filter)
 	}
 
 	// Add readonly indicator
@@ -204,7 +204,11 @@ func RenderRow(row *GoroutineRow, width int, selected bool) string {
 		frameWidth = 2
 	}
 
-	gid := padRight(fmt.Sprintf("%d", row.GID), colGID)
+	gidLabel := fmt.Sprintf("%d", row.GID)
+	if row.GID == 0 {
+		gidLabel = "?"
+	}
+	gid := padRight(gidLabel, colGID)
 	state := renderState(row.State, colState)
 	syscall := padRight(truncate(row.Syscall, colSyscall), colSyscall)
 	latency := renderLatency(row.LatencyUS, colLatency)
@@ -261,7 +265,7 @@ func RenderHelp(width, height int) string {
 	}
 
 	_, _ = b.WriteString("\n")
-	_, _ = b.WriteString(dimStyle.Render(" Press any key to close "))
+	_, _ = b.WriteString(dimStyle.Render(" Esc/q/?/Backspace to close "))
 
 	content := b.String()
 	if width > 40 && height > 15 {
@@ -271,7 +275,7 @@ func RenderHelp(width, height int) string {
 }
 
 // RenderExpanded renders the full-screen expanded goroutine view.
-// Top half: full user-space stack trace.
+// Top half: captured program counter, resolved when available.
 // Bottom half: last 20 syscalls with timestamps and latency.
 func RenderExpanded(row *GoroutineRow, width, height int,
 	stackFrames []string, recentSyscalls []SyscallRecord) string {
@@ -280,11 +284,14 @@ func RenderExpanded(row *GoroutineRow, width, height int,
 
 	// Title
 	title := fmt.Sprintf("Goroutine %d — %s", row.GID, row.State)
+	if row.GID == 0 {
+		title = "Unattributed events — goroutine unknown"
+	}
 	_, _ = b.WriteString(expandedTitleStyle.Render(title))
 	_, _ = b.WriteString("\n\n")
 
 	// Top half: stack trace
-	_, _ = b.WriteString(columnHeaderStyle.Render("Stack Trace:"))
+	_, _ = b.WriteString(columnHeaderStyle.Render("Captured Frame (not a full stack):"))
 	_, _ = b.WriteString("\n")
 
 	if len(stackFrames) == 0 {

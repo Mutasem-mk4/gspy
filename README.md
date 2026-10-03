@@ -134,6 +134,19 @@ gspy <pid> --debug          # Trace BPF verifier logs and map statistics
 gspy --version              # Print release info
 ```
 
+The TUI `io`, `net`, and `sched` filters show each goroutine's last matching
+syscall received in the preceding five seconds. Later unrelated syscalls do not
+hide that activity. The displayed syscall, latency, and frame belong to that
+matching event; `COUNT` remains the total syscall count since attachment. `all`
+shows the latest event without this time window. JSONL filtering still applies
+to individual events, not to this TUI window.
+
+`G` counts observed goroutines with known IDs, not every goroutine in the target.
+Unattributed events appear under `?` and retain `gid=0` in saved JSON. The detail
+view shows a captured frame, not a complete stack trace. Function names are
+resolved from ELF symbols or Go's retained PC table for stripped binaries;
+unresolved addresses remain hexadecimal.
+
 ## 🤝 Contributing
 
 JSONL emits one object per syscall event: `count` is 1 for each record, `latency_us` is the observed syscall duration in microseconds, and `ts` is the kernel monotonic timestamp in seconds, not Unix wall-clock time. `gid=0` means the event could not be attributed to a known goroutine. These records are not the aggregated counters displayed in the TUI. A failed JSON output write terminates tracing with a nonzero exit status.

@@ -5,6 +5,7 @@ package ui
 
 import (
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -40,7 +41,7 @@ func TestSortByLatency(t *testing.T) {
 	// Set sort to latency descending.
 	table.Sort = SortByLatency
 	table.SortDir = SortDesc
-	table.Refresh()
+	table.Refresh(time.Now())
 
 	if len(table.Rows) != 5 {
 		t.Fatalf("expected 5 visible rows, got %d", len(table.Rows))
@@ -56,7 +57,7 @@ func TestSortByLatency(t *testing.T) {
 
 	// Test ascending sort.
 	table.SortDir = SortAsc
-	table.Refresh()
+	table.Refresh(time.Now())
 
 	for i := 1; i < len(table.Rows); i++ {
 		if table.Rows[i].LatencyUS < table.Rows[i-1].LatencyUS {
@@ -76,7 +77,7 @@ func TestSortByCount(t *testing.T) {
 
 	table.Sort = SortByCount
 	table.SortDir = SortDesc
-	table.Refresh()
+	table.Refresh(time.Now())
 
 	if len(table.Rows) != 5 {
 		t.Fatalf("expected 5 visible rows, got %d", len(table.Rows))
@@ -95,14 +96,14 @@ func TestFilterIO(t *testing.T) {
 	table := NewTable()
 
 	// Add rows with IO and non-IO syscalls.
-	table.AllRows[1] = &GoroutineRow{GID: 1, Syscall: "read", Count: 10}
-	table.AllRows[2] = &GoroutineRow{GID: 2, Syscall: "write", Count: 20}
-	table.AllRows[3] = &GoroutineRow{GID: 3, Syscall: "futex", Count: 30}
-	table.AllRows[4] = &GoroutineRow{GID: 4, Syscall: "connect", Count: 40}
-	table.AllRows[5] = &GoroutineRow{GID: 5, Syscall: "openat", Count: 50}
+	table.UpdateRow(GoroutineRow{GID: 1, Syscall: "read", Count: 10}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 2, Syscall: "write", Count: 20}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 3, Syscall: "futex", Count: 30}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 4, Syscall: "connect", Count: 40}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 5, Syscall: "openat", Count: 50}, time.Now())
 
 	table.Filter = FilterIO
-	table.Refresh()
+	table.Refresh(time.Now())
 
 	// Only IO syscalls should be visible: read, write, openat.
 	if len(table.Rows) != 3 {
@@ -123,14 +124,14 @@ func TestFilterIO(t *testing.T) {
 func TestFilterNet(t *testing.T) {
 	table := NewTable()
 
-	table.AllRows[1] = &GoroutineRow{GID: 1, Syscall: "read", Count: 10}
-	table.AllRows[2] = &GoroutineRow{GID: 2, Syscall: "connect", Count: 20}
-	table.AllRows[3] = &GoroutineRow{GID: 3, Syscall: "socket", Count: 30}
-	table.AllRows[4] = &GoroutineRow{GID: 4, Syscall: "futex", Count: 40}
-	table.AllRows[5] = &GoroutineRow{GID: 5, Syscall: "accept4", Count: 50}
+	table.UpdateRow(GoroutineRow{GID: 1, Syscall: "read", Count: 10}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 2, Syscall: "connect", Count: 20}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 3, Syscall: "socket", Count: 30}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 4, Syscall: "futex", Count: 40}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 5, Syscall: "accept4", Count: 50}, time.Now())
 
 	table.Filter = FilterNet
-	table.Refresh()
+	table.Refresh(time.Now())
 
 	// Only net syscalls should be visible: connect, socket, accept4.
 	if len(table.Rows) != 3 {
@@ -151,14 +152,14 @@ func TestFilterNet(t *testing.T) {
 func TestFilterSched(t *testing.T) {
 	table := NewTable()
 
-	table.AllRows[1] = &GoroutineRow{GID: 1, Syscall: "read", Count: 10}
-	table.AllRows[2] = &GoroutineRow{GID: 2, Syscall: "futex", Count: 20}
-	table.AllRows[3] = &GoroutineRow{GID: 3, Syscall: "sched_yield", Count: 30}
-	table.AllRows[4] = &GoroutineRow{GID: 4, Syscall: "nanosleep", Count: 40}
-	table.AllRows[5] = &GoroutineRow{GID: 5, Syscall: "connect", Count: 50}
+	table.UpdateRow(GoroutineRow{GID: 1, Syscall: "read", Count: 10}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 2, Syscall: "futex", Count: 20}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 3, Syscall: "sched_yield", Count: 30}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 4, Syscall: "nanosleep", Count: 40}, time.Now())
+	table.UpdateRow(GoroutineRow{GID: 5, Syscall: "connect", Count: 50}, time.Now())
 
 	table.Filter = FilterSched
-	table.Refresh()
+	table.Refresh(time.Now())
 
 	// Only sched syscalls: futex, sched_yield, nanosleep.
 	if len(table.Rows) != 3 {
@@ -260,7 +261,7 @@ func TestTableSelection(t *testing.T) {
 	for _, r := range rows {
 		table.AllRows[r.GID] = r
 	}
-	table.Refresh()
+	table.Refresh(time.Now())
 
 	// Initial selection.
 	if table.SelectedIdx != 0 {

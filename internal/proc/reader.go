@@ -15,6 +15,7 @@ package proc
 
 import (
 	"debug/elf"
+	"debug/gosym"
 	"fmt"
 	"sort"
 	"sync"
@@ -91,18 +92,19 @@ type elfSymbol struct {
 }
 
 // FrameResolver resolves program counter values to Go function names
-// using the target binary's ELF symbol table. It caches results in a
+// using ELF symbols or the retained Go PC table. It caches results in a
 // SymbolCache for performance.
 //
-// When symbol resolution fails (stripped binary, invalid PC), the resolver
+// When symbol resolution fails (missing metadata, invalid PC), the resolver
 // returns "0x<hex>" rather than panicking.
 type FrameResolver struct {
 	symbols []elfSymbol
 	cache   *SymbolCache
+	goTable *gosym.Table
 }
 
 // NewFrameResolver creates a resolver for the given binary.
-// If the binary cannot be opened or has no symbols, the resolver
+// If the binary cannot be opened or has no symbol metadata, the resolver
 // operates in fallback mode (all PCs resolve to "0x<hex>").
 func NewFrameResolver(binaryPath string, cache *SymbolCache) (*FrameResolver, error) {
 	r := &FrameResolver{cache: cache}
@@ -116,8 +118,11 @@ func NewFrameResolver(binaryPath string, cache *SymbolCache) (*FrameResolver, er
 
 	syms, err := f.Symbols()
 	if err != nil {
-		// Binary has no symbol table (stripped). Fallback mode.
-		return r, nil
+		if err != elf.ErrNoSymbols {
+			return r, err
+		}
+		r.goTable, err = goFunctionTable(f)
+		return r, err
 	}
 
 	// Filter to function symbols (STT_FUNC) and sort by address.
@@ -137,6 +142,25 @@ func NewFrameResolver(binaryPath string, cache *SymbolCache) (*FrameResolver, er
 	})
 
 	return r, nil
+}
+
+// Go retains function names in its runtime PC table even with -ldflags='-s -w'.
+func goFunctionTable(binary *elf.File) (table *gosym.Table, err error) {
+	defer func() {
+		if malformed := recover(); malformed != nil {
+			table = nil
+			err = fmt.Errorf("invalid Go PC table: %v", malformed)
+		}
+	}()
+	pcln, text := binary.Section(".gopclntab"), binary.Section(".text")
+	if pcln == nil || text == nil {
+		return nil, nil
+	}
+	contents, err := pcln.Data()
+	if err != nil {
+		return nil, fmt.Errorf("reading Go PC table: %w", err)
+	}
+	return gosym.NewTable(nil, gosym.NewLineTable(contents, text.Addr))
 }
 
 // Resolve converts a PC to a human-readable function name.
@@ -170,6 +194,11 @@ func (r *FrameResolver) Resolve(pc uint64) string {
 // For symbols with Size=0 (common in Go), we use the next symbol's address
 // as the upper bound.
 func (r *FrameResolver) lookupSymbol(pc uint64) string {
+	if r.goTable != nil {
+		if function := r.goTable.PCToFunc(pc); function != nil {
+			return function.Name
+		}
+	}
 	if len(r.symbols) == 0 {
 		return fmt.Sprintf("0x%x", pc)
 	}

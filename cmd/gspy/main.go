@@ -378,6 +378,9 @@ func runTUI(ctx context.Context, cancel context.CancelFunc,
 		Filter:    filter,
 		SortMode:  sortMode,
 	}
+	if resolver != nil {
+		cfg.ResolveFrame = resolver.Resolve
+	}
 	model := ui.NewModel(cfg)
 
 	// Create bubbletea program.
@@ -397,13 +400,6 @@ func runTUI(ctx context.Context, cancel context.CancelFunc,
 		}()
 
 		err := mgr.PollEvents(ctx, func(evt bpf.SyscallEvent) {
-			// Resolve frame symbol before sending to TUI.
-			if evt.FramePC != 0 && resolver != nil {
-				// We can't modify the evt struct to store the resolved name,
-				// so the TUI model will resolve it via FramePC.
-				// For efficiency, pre-populate the cache.
-				resolver.Resolve(evt.FramePC)
-			}
 			p.Send(ui.SyscallEventMsg(evt))
 		})
 

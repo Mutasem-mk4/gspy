@@ -47,13 +47,14 @@ type clearFlashMsg struct{}
 
 // Config holds runtime configuration passed to the TUI model.
 type Config struct {
-	PID       int
-	Binary    string
-	GoVersion string
-	Readonly  bool
-	SHA256    string
-	Filter    FilterMode
-	SortMode  SortMode
+	ResolveFrame func(uint64) string
+	PID          int
+	Binary       string
+	GoVersion    string
+	Readonly     bool
+	SHA256       string
+	Filter       FilterMode
+	SortMode     SortMode
 }
 
 // Model is the bubbletea Model for gspy's TUI.
@@ -148,7 +149,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TickMsg:
 		m.lastTick = time.Time(msg)
-		m.table.Refresh()
+		m.table.Refresh(m.lastTick)
 		return m, tickCmd()
 
 	case PulseMsg:
@@ -222,17 +223,17 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "f":
 		m.table.CycleFilter()
-		m.table.Refresh()
+		m.table.Refresh(time.Now())
 		return m, nil
 
 	case "s":
 		m.table.ToggleSort()
-		m.table.Refresh()
+		m.table.Refresh(time.Now())
 		return m, nil
 
 	case "S":
 		m.table.ToggleSortDirection()
-		m.table.Refresh()
+		m.table.Refresh(time.Now())
 		return m, nil
 
 	case "ctrl+j":
@@ -272,17 +273,13 @@ func (m *Model) handleSyscallEvent(evt bpf.SyscallEvent) {
 		syscallName := bpf.SyscallName(evt.SyscallNr)
 		latencyUS := int64(evt.LatencyNs / 1000)
 		frame := fmt.Sprintf("0x%x", evt.FramePC)
-		// Note: frame resolution happens in the caller that feeds events.
-		// The model receives pre-resolved frame names when available.
-
-		m.table.UpdateRow(
-			evt.GID,
-			syscallName,
-			latencyUS,
-			frame,
-			evt.FramePC,
-			"syscall",
-		)
+		if m.config.ResolveFrame != nil {
+			frame = m.config.ResolveFrame(evt.FramePC)
+		}
+		m.table.UpdateRow(GoroutineRow{
+			GID: evt.GID, Syscall: syscallName, LatencyUS: latencyUS,
+			Frame: frame, FramePC: evt.FramePC, State: "syscall",
+		}, time.Now())
 
 		// Record for expanded view (last 20 syscalls per goroutine).
 		record := SyscallRecord{
