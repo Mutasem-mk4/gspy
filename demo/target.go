@@ -12,7 +12,7 @@ import (
 func simulateMalware() {
 	fmt.Println("Malware goroutine started: beaconing every 3 seconds...")
 	for {
-		conn, err := net.DialTimeout("tcp", "8.8.8.8:80", 2*time.Second)
+		conn, err := net.DialTimeout("tcp", "127.0.0.1:19999", 2*time.Second)
 		if err == nil {
 			if _, err := conn.Write([]byte("ping\n")); err != nil {
 				fmt.Printf("Error writing to connection: %v\n", err)
@@ -24,10 +24,10 @@ func simulateMalware() {
 }
 
 // simulateKeylogger simulates rogue disk I/O
-func simulateKeylogger() {
+func simulateKeylogger(logPath string) {
 	fmt.Println("Keylogger goroutine started: writing to disk every 5 seconds...")
 	for {
-		f, err := os.OpenFile("/tmp/suspicious_log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0600)
 		if err == nil {
 			if _, err := f.WriteString("keypress\n"); err != nil {
 				fmt.Printf("Error writing to file: %v\n", err)
@@ -39,8 +39,12 @@ func simulateKeylogger() {
 }
 
 func main() {
+	if len(os.Args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: target <demo-log-file>")
+		os.Exit(1)
+	}
 	fmt.Printf("Suspicious target process started (PID: %d)\n", os.Getpid())
 	go simulateMalware()
-	go simulateKeylogger()
+	go simulateKeylogger(os.Args[1])
 	select {} // Block forever
 }

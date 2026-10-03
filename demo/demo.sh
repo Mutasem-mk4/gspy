@@ -14,9 +14,10 @@ make build
 go build -o demo/target demo/target.go
 
 echo -e "${GREEN}[+] Starting target process...${NC}"
-./demo/target > /dev/null 2>&1 &
+DEMO_LOG=$(mktemp)
+./demo/target "$DEMO_LOG" > /dev/null 2>&1 &
 TARGET_PID=$!
-trap 'kill "$TARGET_PID" 2>/dev/null || true; wait "$TARGET_PID" 2>/dev/null || true' EXIT
+trap 'kill "$TARGET_PID" 2>/dev/null || true; wait "$TARGET_PID" 2>/dev/null || true; rm -f "$DEMO_LOG"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
