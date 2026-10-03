@@ -21,11 +21,11 @@ Description: forensic goroutine-to-syscall inspector for Go processes
  kernel tracepoints, mapping goroutine IDs to active kernel syscalls
  and user-space stack frames in real time.
  .
- No ptrace, no instrumentation, no process restart, and no modification
- of the target binary's memory or file hash is required. Goroutine IDs
- are extracted via thread-local storage using process_vm_readv(2).
+ The tracer uses kernel uprobes and tracepoints without restarting the
+ target process. Instrumentation has overhead. Goroutine IDs are read
+ from the Go runtime by BPF probes.
  .
- Features include forensic readonly mode with SHA-256 binary attestation,
+ Features include executable SHA-256 recording in readonly mode,
  JSON output for pipeline integration, and a live terminal UI.
  .
  Requires Linux kernel 5.8 or later with BPF syscall support enabled

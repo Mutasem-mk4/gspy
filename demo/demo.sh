@@ -13,14 +13,15 @@ echo -e "${BLUE}[*] Building gspy and demo target...${NC}"
 make build
 go build -o demo/target demo/target.go
 
-echo -e "${GREEN}[+] Starting target process (PID: $!)...${NC}"
+echo -e "${GREEN}[+] Starting target process...${NC}"
 ./demo/target > /dev/null 2>&1 &
 TARGET_PID=$!
+trap 'kill "$TARGET_PID" 2>/dev/null || true; wait "$TARGET_PID" 2>/dev/null || true' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 echo -e "${BLUE}[*] Target is running with PID ${TARGET_PID}${NC}"
 echo -e "${BLUE}[*] Launching gspy in 2 seconds...${NC}"
 sleep 2
 
-trap "kill $TARGET_PID; echo -e '\n${GREEN}[+] Cleaned up demo target.${NC}'; exit" INT TERM EXIT
-
-sudo ./bin/gspy --pid $TARGET_PID
+sudo ./bin/gspy "$TARGET_PID"

@@ -311,7 +311,7 @@ func (m *Model) View() string {
 		if m.err != nil {
 			return fmt.Sprintf("Error: %v\n", m.err)
 		}
-		return fmt.Sprintf("process %d exited, detaching\n", m.config.PID)
+		return fmt.Sprintf("detached from process %d\n", m.config.PID)
 	}
 
 	// Overlay screens.
