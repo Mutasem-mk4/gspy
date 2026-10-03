@@ -44,6 +44,15 @@ jobs:
           printf '%s\n' "${GITHUB_SHA}" > clean-results/harness-source.txt
           sha256sum clean-input/* > clean-results/input-sha256.txt
           cp qa/parrot_clean_build.sh clean-input/
+          cp qa/parrot_gbp_rebuild.sh clean-input/
+      - name: Pin the official Parrot Git build helper
+        if: inputs.revised_packaging
+        run: |
+          git clone https://gitlab.com/parrotsec/build/git-sbuildpkg.git helper-source
+          git -C helper-source checkout 7164e1646556027f00e0ac10ceaff839e77ba795
+          git -C helper-source archive HEAD > clean-input/git-sbuildpkg.tar
+          git -C helper-source rev-parse HEAD > clean-results/git-sbuildpkg-source.txt
+          sha256sum clean-input/git-sbuildpkg.tar > clean-results/git-sbuildpkg-sha256.txt
       - name: Record and overlay Debian revision 2
         if: inputs.revised_packaging
         run: |
@@ -62,7 +71,14 @@ jobs:
           docker run --rm --privileged \
             --mount "type=bind,src=$PWD/clean-input,dst=/input,readonly" \
             --mount "type=bind,src=$PWD/clean-results,dst=/results" \
-            "$image" bash /input/parrot_clean_build.sh
+            "$image" bash -c '
+              result=0
+              bash /input/parrot_clean_build.sh || result=1
+              if [ -f /input/git-sbuildpkg.tar ]; then
+                bash /input/parrot_gbp_rebuild.sh || result=1
+              fi
+              exit "$result"
+            '
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

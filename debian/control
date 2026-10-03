@@ -1,7 +1,7 @@
 Source: gspy
 Section: misc
 Priority: optional
-Maintainer: Mutasem Kharma <mutasem@gspy.dev>
+Maintainer: Mutasem Kharma <kharma.mutasem@gmail.com>
 Build-Depends: debhelper-compat (= 13),
                golang-1.26-go (>= 1.26.8~),
                clang (>= 14),
@@ -11,6 +11,8 @@ Build-Depends: debhelper-compat (= 13),
                linux-libc-dev
 Standards-Version: 4.6.2
 Homepage: https://github.com/Mutasem-mk4/gspy
+Vcs-Git: https://github.com/Mutasem-mk4/gspy.git
+Vcs-Browser: https://github.com/Mutasem-mk4/gspy
 Rules-Requires-Root: no
 
 Package: gspy

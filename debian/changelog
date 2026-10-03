@@ -3,8 +3,9 @@ gspy (0.2.3-2) unstable; urgency=medium
   * Describe the captured program counter without claiming a full stack.
   * Record vendored component licenses and verify installed CLI failure paths.
   * Declare the versioned Go compiler and the module's required patch level.
+  * Use the submitted maintainer contact and declare the source repository.
 
- -- Mutasem Kharma <mutasem@gspy.dev>  Sun, 04 Oct 2026 12:30:00 +0300
+ -- Mutasem Kharma <kharma.mutasem@gmail.com>  Sun, 04 Oct 2026 12:30:00 +0300
 
 gspy (0.2.3-1) unstable; urgency=medium
 

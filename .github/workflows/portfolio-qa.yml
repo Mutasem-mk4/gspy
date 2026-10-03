@@ -11,8 +11,13 @@ on:
       mcpwn_red_ref:
         default: '7f75dcfb648453c130c0dbb0656254fd05211e24'
         required: true
+      clean_package_run:
+        required: false
+        default: ''
+        description: Optional Parrot clean-build artifacts for genuine source-built Go runtime tests
 permissions:
   contents: read
+  actions: read
 jobs:
   acceptance:
     strategy:
@@ -45,11 +50,28 @@ jobs:
       - name: Install BPF build dependencies
         run: sudo apt-get update && sudo apt-get install -y clang llvm libbpf-dev libelf-dev
       - name: Build current tools from clean pinned sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLEAN_PACKAGE_RUN: ${{ inputs.clean_package_run }}
+          RUNNER_NAME: ${{ matrix.runner }}
         run: |
           mkdir qa-bin
-          make -C gspy-source build
-          make -C procscope-source build
-          cp gspy-source/bin/gspy procscope-source/bin/procscope qa-bin/
+          if [ -n "$CLEAN_PACKAGE_RUN" ]; then
+            artifact_runner=ubuntu-24.04
+            if [ "$RUNNER_NAME" = ubuntu-24.04-arm ]; then artifact_runner=ubuntu-24.04-arm; fi
+            gh run download "$CLEAN_PACKAGE_RUN" --repo Mutasem-mk4/gspy --name "parrot-clean-build-$artifact_runner" --dir clean-build
+            for tool in gspy procscope; do
+              package=$(find "clean-build/$tool" -maxdepth 1 -name "${tool}_*.deb" -print -quit)
+              test -n "$package"
+              sha256sum "$package" >> source-built-package-sha256.txt
+              dpkg-deb -x "$package" package-root
+              cp "package-root/usr/bin/$tool" qa-bin/
+            done
+          else
+            make -C gspy-source build
+            make -C procscope-source build
+            cp gspy-source/bin/gspy procscope-source/bin/procscope qa-bin/
+          fi
           git clone https://gitlab.com/parrotsec/project/mcpwn.git mcpwn-source
           git -C mcpwn-source checkout a5d0bbb4e2ec2f0e27404543e67f825fb98bad4e
           cd mcpwn-source
@@ -75,3 +97,4 @@ jobs:
           path: |
             qa-results/
             python-dependencies.txt
+            source-built-package-sha256.txt

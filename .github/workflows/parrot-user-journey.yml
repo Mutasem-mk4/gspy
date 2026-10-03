@@ -6,6 +6,10 @@ on:
         required: true
       gspy_ref:
         required: true
+      clean_package_run:
+        required: false
+        default: ''
+        description: Optional qualified Parrot clean-build run; enables old-to-new Debian upgrade checks
 permissions:
   contents: read
   actions: read
@@ -18,7 +22,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: Mutasem-mk4/mcpwn-red
-          ref: '7f75dcfb648453c130c0dbb0656254fd05211e24'
+          ref: 'aedd0e4cc83e4f67d669c57c306655cdef62d45d'
           path: payload/mcpwn-red-source
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:
@@ -28,11 +32,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GSPY_PACKAGE_RUN: ${{ inputs.gspy_package_run }}
           GSPY_REF: ${{ inputs.gspy_ref }}
+          CLEAN_PACKAGE_RUN: ${{ inputs.clean_package_run }}
         run: |
           mkdir -p payload/packages/gspy payload/packages/procscope payload/packages/mcpwn-red payload/gspy-source
           gh run download "$GSPY_PACKAGE_RUN" --repo Mutasem-mk4/gspy --name gspy-debian --dir payload/packages/gspy
           gh run download 37156095437 --repo Mutasem-mk4/procscope --name procscope-deb --dir payload/packages/procscope
           gh run download 37156094901 --repo Mutasem-mk4/mcpwn-red --name mcpwn-red-debian --dir payload/packages/mcpwn-red
+          if [ -n "$CLEAN_PACKAGE_RUN" ]; then
+            mv payload/packages payload/old-packages
+            gh run download "$CLEAN_PACKAGE_RUN" --repo Mutasem-mk4/gspy --name parrot-clean-build-ubuntu-24.04 --dir clean-build
+            for tool in gspy procscope mcpwn-red; do
+              mkdir -p "payload/packages/$tool"
+              cp "clean-build/$tool/"*.deb "payload/packages/$tool/"
+            done
+            cp clean-build/status.tsv payload/clean-build-status.tsv
+            cp clean-build/container-digest.txt payload/clean-build-container-digest.txt
+            printf '%s\n' "$CLEAN_PACKAGE_RUN" > payload/clean-build-run.txt
+          fi
+          sha256sum payload/packages/*/*.deb > payload/package-sha256.txt
           git fetch --depth=1 origin "$GSPY_REF"
           git archive FETCH_HEAD | tar -x -C payload/gspy-source
           cp -a qa payload/qa
