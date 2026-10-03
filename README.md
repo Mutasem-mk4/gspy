@@ -136,6 +136,8 @@ gspy --version              # Print release info
 
 ## 🤝 Contributing
 
+JSONL emits one object per syscall event: `count` is 1 for each record, `latency_us` is the observed syscall duration in microseconds, and `ts` is the kernel monotonic timestamp in seconds, not Unix wall-clock time. `gid=0` means the event could not be attributed to a known goroutine. These records are not the aggregated counters displayed in the TUI. A failed JSON output write terminates tracing with a nonzero exit status.
+
 We actively welcome Pull Requests solving compatibility with newer Go betas or hardening the BPF C-code. Check out the [**Contributing Guide**](CONTRIBUTING.md) and [**Code of Conduct**](CODE_OF_CONDUCT.md).
 
 ## 📄 License & Legal

@@ -191,6 +191,7 @@ for version in ['go1.23.0', 'go1.26.8', 'go1.27.1']:
             actual = {r['gid'] for r in records if r['syscall'] == 'connect'}
             require(expected <= actual, f'Not all goroutines mapped: expected {expected}, actual {actual}')
             require(all(r['pid'] == target.pid and r.get('readonly') for r in records), 'Wrong target/readonly fields')
+            require(all(r['count'] == 1 for r in records), 'Per-event JSON count must be one')
             require(all(r['syscall'] not in ['futex', 'write', 'read', 'nanosleep', 'clock_nanosleep'] for r in records),
                     'JSON ignored --filter net')
             require(hashlib.sha256(binary.read_bytes()).hexdigest() == before, 'Target file changed')

@@ -330,6 +330,7 @@ func runJSON(ctx context.Context, mgr bpf.Manager,
 			State:     "syscall",
 			Syscall:   bpf.SyscallName(evt.SyscallNr),
 			LatencyUS: int64(evt.LatencyNs / 1000),
+			Count:     1,
 			Frame:     frame,
 		}
 
