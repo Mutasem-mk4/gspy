@@ -3,7 +3,7 @@
 pkgname=gspy
 pkgver=0.2.2
 pkgrel=1
-_commit=c55d43d9e411656881cfea44a8b00d732fb6fda4
+_commit=5b82ec99f8d529a0ee68e35ddf5e59b498edef4d
 pkgdesc="Forensic goroutine-to-syscall inspector for live Go processes using eBPF."
 arch=('x86_64' 'aarch64')
 url="https://github.com/Mutasem-mk4/gspy"
@@ -11,7 +11,7 @@ license=('GPL-2.0-only')
 groups=('blackarch' 'blackarch-forensic' 'blackarch-debugger')
 makedepends=('go>=1.26.8' 'clang>=14' 'llvm>=14' 'libbpf' 'linux-api-headers')
 source=("$pkgname-$_commit.tar.gz::$url/archive/$_commit.tar.gz")
-sha256sums=('ca4ff7f3dd57a21bc1d0ca739d1ba1864ae4e7ccf659fc6282588207e52a4718')
+sha256sums=('9705f8065457ad9b499aebbfc8485db862340161d47f605a40d404170c353624')
 
 build() {
     cd "$pkgname-$_commit"

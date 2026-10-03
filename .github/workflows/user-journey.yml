@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       gspy_ref:
-        default: 'b3a48173de475b5e631279e98ced97aa503a0246'
+        default: '5b82ec99f8d529a0ee68e35ddf5e59b498edef4d'
         required: true
       gspy_package_run:
         default: '37121002788'

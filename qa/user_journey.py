@@ -7,6 +7,7 @@ from pathlib import Path
 import pty
 import re
 import select
+import shutil
 import signal
 import struct
 import subprocess
@@ -279,5 +280,18 @@ check('mcpwn-red user: real server probe, assessment, HTML report and missing-se
 
 target.terminate()
 target.wait(timeout=5)
+
+
+def uninstall():
+    response = command('remove-linux-packages', ['sudo','-n','apt-get','remove','-y','gspy','procscope'], timeout=90)
+    require(response.returncode == 0, response.stderr)
+    require(shutil.which('gspy') is None and shutil.which('procscope') is None, 'Removed CLI still on PATH')
+    response = command('remove-mcpwn-red', [root/'mcp-env/bin/pip','uninstall','-y','mcpwn-red'])
+    require(response.returncode == 0 and not (root/'mcp-env/bin/mcpwn-red').exists(), response.stderr)
+    response = command('evidence-survives-removal', ['sudo','-n','test','-s',args.out/'case/events.jsonl'])
+    require(response.returncode == 0 and (args.out/'mcp-results/results.json').exists(),
+            'Uninstall removed user evidence')
+check('User uninstall removes commands and preserves collected evidence', uninstall)
+
 (args.out/'user-journey.json').write_text(json.dumps(dict(results=results),indent=2))
 raise SystemExit(1 if any(r['status']=='FAIL' for r in results) else 0)
