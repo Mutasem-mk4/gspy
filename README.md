@@ -7,10 +7,10 @@
 <div align="center">
   <img src="docs/assets/logo.jpg" alt="gspy logo" width="100%" />
   <br />
-  <p><strong>Advanced eBPF-driven Digital Forensics and Incident Response (DFIR) framework for live Golang malware analysis and threat hunting.</strong></p>
+  <p><strong>Inspect syscall activity by goroutine in a running Go process.</strong></p>
   
   [![License: GPL-2.0-only](https://img.shields.io/badge/License-GPL--2.0--only-blue.svg)](LICENSE)
-  [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8.svg?logo=go)](https://go.dev)
+  [![Go Version](https://img.shields.io/badge/Go-1.26.8+-00ADD8.svg?logo=go)](https://go.dev)
   [![Kernel](https://img.shields.io/badge/Kernel-5.8+-yellow.svg?logo=linux)](https://kernel.org)
   [![BlackArch](https://img.shields.io/badge/BlackArch-official-black?style=flat&logo=blackarchlinux)](https://blackarch.org/tools.html)
   [![Go Reference](https://pkg.go.dev/badge/github.com/Mutasem-mk4/gspy.svg)](https://pkg.go.dev/github.com/Mutasem-mk4/gspy)
@@ -22,18 +22,16 @@
 
 <br>
 
-**gspy** is a highly specialized Linux cybersecurity tool that attaches to a live Go process using eBPF uprobes and kernel tracepoints, mapping running goroutines to their real-time syscalls and user-space stack frames. It isolates malicious or anomalous behavior in concurrent Go rootkits, C2 frameworks, and production servers dynamically, silently, and accurately. Designed for Security Operations Centers (SOC), reverse engineers, and malware analysts, gspy provides unprecedented observability into compiled Go binaries.
+**gspy** attaches to a running Linux Go process and correlates syscall events with goroutine IDs using eBPF. Use it when you need to investigate an existing binary without recompiling it or adding a diagnostics agent.
 
-There are no process restarts (`execve`), no pauses (`ptrace(ATTACH)` overhead), and absolutely zero modifications to the target binary memory.
-
----
+The tracer uses kernel uprobes and tracepoints. Observation has overhead; this project does not claim zero impact or complete forensic preservation. `--readonly` records the executable file's SHA-256 and marks JSON events; it is not a hash of process memory or a guarantee that instrumentation leaves memory unchanged.
 
 ## ⚡ Core Features
 
-- **✅ Zero `ptrace()` Pauses:** Uses `process_vm_readv` and eBPF; completely bypasses the `ptrace` attachment halt, ensuring target process performance is strictly unaffected.
-- **✅ Cross-Architecture Support:** Completely native, CO-RE compliant compilation for both `x86_64` (AMD64) and `AArch64` (ARM64) systems.
-- **✅ Granular Auditing:** Answers the critical incident response question: *"Which specific goroutine inside this 10,000-thread application just called `execve` or `connect`?"*
-- **✅ Forensic Integrity Mode:** The `--readonly` flag guarantees a cryptographic (SHA-256) footprint of the process alongside a strictly enforced 0-write operational guarantee.
+- Attach by PID and inspect goroutine-to-syscall mappings in a terminal UI.
+- Filter I/O, network, or scheduling syscalls in both the UI and JSONL output.
+- Resolve runtime probe offsets from Go's PC table, including stripped binaries.
+- Build for Linux AMD64 and ARM64; see CI for tested compiler versions.
 
 ## 🚀 Demo
 
@@ -90,13 +88,9 @@ This will build `gspy`, launch a "suspicious" target process in the background, 
 
 gspy rigidly tracks the internal Application Binary Interface (ABI) of the Go compiler.
 
-| Go Version | AMD64 ( `x86_64` ) | ARM64 ( `aarch64` ) |
-|------------|-------|-------|
-| **1.21.x** | ✅ Validated | ✅ Validated |
-| **1.22.x** | ✅ Validated | ✅ Validated |
-| **1.23.x** | ✅ Validated | ✅ Validated |
-| **1.24.x** | ✅ Validated | ✅ Validated |
-| *1.17 - 1.20* | ⚠️ Legacy / Experimental | ⚠️ Legacy / Experimental |
+ABI tests compile real ELF targets with Go 1.23.0, 1.24.0, 1.25.0, 1.26.8, and 1.27.1 for AMD64 and ARM64. ABI offset checks alone do not verify live attachment. The manual portfolio QA additionally exercises live stripped targets built with Go 1.23.0, 1.26.8, and 1.27.1 on native Linux runners.
+
+Compiler patch releases and different kernels can behave differently. Consult the latest [CI results](https://github.com/Mutasem-mk4/gspy/actions) before relying on a particular combination.
 
 ### Linux Kernel Constraints
 - Linux kernel **>= 5.8** *(Mandatory for BPF ring buffer support)*
@@ -116,9 +110,9 @@ gspy is an official package in the following security-focused distributions:
 ```bash
 git clone https://github.com/Mutasem-mk4/gspy
 cd gspy
-make generate   # requires clang >= 14 & bpftool
-make build      # requires go >= 1.21
-sudo make install # installs securely to /usr/bin and generates manpages
+make generate   # requires clang >= 14 and LLVM
+make build      # requires Go >= 1.26.8
+sudo make install # installs the binary and existing man page
 ```
 
 ### Privileges
@@ -134,7 +128,7 @@ gspy <pid>                  # Show live goroutine→syscall mapping TUI
 gspy <pid> --top            # Sort by total syscall volume (default)
 gspy <pid> --latency        # Sort strictly by highest syscall response blockage
 gspy <pid> --filter <mode>  # Subselect modes: io | net | sched | all 
-gspy <pid> --readonly       # Forensic compliance mode: strict zero-write, logs SHA256 of memory map
+gspy <pid> --readonly       # Record executable file SHA-256 and mark JSON events
 gspy <pid> --json           # Export data as newline-delimited JSON stream for SIEM / jq pipelines
 gspy <pid> --debug          # Trace BPF verifier logs and map statistics
 gspy --version              # Print release info

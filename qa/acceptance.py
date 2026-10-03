@@ -154,6 +154,16 @@ def proc_diskfull():
     require('output' in response.stderr.lower() or 'space' in response.stderr.lower(), response.stderr)
 check('procscope: full output device reports failure and terminates', proc_diskfull)
 
+
+def proc_output_preflight():
+    marker = args.out/'must-not-run'
+    response = run([proc, '--quiet', '--jsonl', '/dev/null/invalid', '--',
+                    sys.executable, '-c', 'import pathlib,sys;pathlib.Path(sys.argv[1]).write_text("ran")', marker])
+    require(response.returncode != 0, 'Invalid output path returned success')
+    time.sleep(.1)
+    require(not marker.exists(), 'Command executed before output initialization failed')
+check('procscope: invalid JSON output path fails before executing target', proc_output_preflight)
+
 for version in ['go1.23.0', 'go1.26.8', 'go1.27.1']:
     source = args.out / version
     source.mkdir()

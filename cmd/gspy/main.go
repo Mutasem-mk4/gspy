@@ -9,7 +9,7 @@
 //	gspy <pid> --top            Sort by syscall frequency (default)
 //	gspy <pid> --latency        Sort by highest current syscall latency
 //	gspy <pid> --filter <mode>  Filter: io | net | sched | all (default: all)
-//	gspy <pid> --readonly       Forensic mode: zero writes, log SHA-256
+//	gspy <pid> --readonly       Record executable SHA-256 and mark JSON events
 //	gspy <pid> --json           Emit newline-delimited JSON to stdout
 //	gspy <pid> --debug          Show BPF verifier log and map stats
 //	gspy --version              Show version block
@@ -71,7 +71,7 @@ func run() int {
 		flagTop      = flags.Bool("top", false, "Sort by syscall count (default)")
 		flagLatency  = flags.Bool("latency", false, "Sort by highest syscall latency")
 		flagFilter   = flags.String("filter", "all", "Filter: io | net | sched | all")
-		flagReadonly = flags.Bool("readonly", false, "Forensic mode: zero writes, log SHA-256")
+		flagReadonly = flags.Bool("readonly", false, "Record executable SHA-256 and mark JSON events")
 		flagJSON     = flags.Bool("json", false, "Emit newline-delimited JSON to stdout")
 		flagDebug    = flags.Bool("debug", false, "Show BPF verifier log and map stats")
 		flagVersion  = flags.Bool("version", false, "Show version information")
@@ -85,7 +85,7 @@ USAGE:
   gspy <pid> --top            Sort by syscall frequency (default)
   gspy <pid> --latency        Sort by highest current syscall latency
   gspy <pid> --filter <mode>  Filter: io | net | sched | all (default: all)
-  gspy <pid> --readonly       Forensic mode: zero writes, log SHA-256
+  gspy <pid> --readonly       Record executable SHA-256 and mark JSON events
   gspy <pid> --json           Emit newline-delimited JSON to stdout
   gspy <pid> --debug          Show BPF verifier log and map stats
   gspy --version              Show version block
