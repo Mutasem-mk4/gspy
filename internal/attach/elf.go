@@ -112,9 +112,6 @@ func ParseGoVersion(version string) (int, int, error) {
 // GetGIDOffset prefers the target binary's DWARF layout, then a verified table.
 // A zero offset with a diagnostic means tracing must not proceed.
 func GetGIDOffset(binaryPath string, goVersion string) (uint64, string) {
-	if offset, err := DWARFLookupGoidOffset(binaryPath); err == nil {
-		return offset, ""
-	}
 	arch := runtime.GOARCH
 	if binaryPath != "" {
 		binary, err := elf.Open(binaryPath)
@@ -139,6 +136,9 @@ func GetGIDOffset(binaryPath string, goVersion string) (uint64, string) {
 		table = gidOffsetTableARM64
 	default:
 		return 0, fmt.Sprintf("unsupported target architecture: %s", arch)
+	}
+	if offset, err := DWARFLookupGoidOffset(binaryPath); err == nil {
+		return offset, ""
 	}
 	major, minor, err := ParseGoVersion(goVersion)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -49,5 +50,26 @@ func TestCompiledRuntimeLayout(t *testing.T) {
 				t.Fatalf("stripped binary: offset=%d diagnostic=%q; DWARF=%d", fallback, diagnostic, actual)
 			}
 		})
+	}
+}
+
+func TestUnsupportedELFRefusedEvenWithDWARF(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "target.go")
+	if err := os.WriteFile(source, []byte("package main\nimport \"runtime\"\nfunc main(){runtime.Gosched()}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	binary := filepath.Join(dir, "target-386")
+	command := exec.Command("go", "build", "-o", binary, source)
+	command.Env = append(os.Environ(), "GOOS=linux", "GOARCH=386", "CGO_ENABLED=0")
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("build unsupported ELF: %v\n%s", err, output)
+	}
+	if _, err := DWARFLookupGoidOffset(binary); err != nil {
+		t.Fatalf("fixture must have readable runtime DWARF: %v", err)
+	}
+	offset, diagnostic := GetGIDOffset(binary, "go1.26.8")
+	if offset != 0 || !strings.Contains(diagnostic, "unsupported target architecture") {
+		t.Fatalf("must refuse unsupported ELF before using DWARF: offset=%d diagnostic=%q", offset, diagnostic)
 	}
 }
