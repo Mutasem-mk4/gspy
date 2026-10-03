@@ -103,8 +103,8 @@ fixture.write_text(PROC_TARGET)
 case = args.out / 'process-case'
 case.mkdir()
 noise = subprocess.Popen([sys.executable, '-c',
-    'import os,time; p=os.environ["QA_NOISE"]; '
-    'exec("while True:\\n open(p,\"w\").write(\"noise\"); time.sleep(.01)".replace("\\n","\n"))'],
+    'import os,time\nwhile True:\n'
+    ' with open(os.environ["QA_NOISE"], "w") as f: f.write("noise")\n time.sleep(.01)'],
     env={**os.environ, 'QA_NOISE': str(case/'unrelated.txt')}, stdout=subprocess.DEVNULL)
 try:
     captured = run([proc, '--json', '--out', case/'bundle', '--', sys.executable, fixture, case])
@@ -212,7 +212,11 @@ def mcp_simulation():
     require(response.returncode == 1, f'Expected findings exit 1: {response.returncode}: {response.stderr}')
     require(report['assessment_kind'] == 'simulation', 'Simulation mislabeled as deployment')
     require(report['summary']['FAIL'] == len(report['results']), 'Payload simulation has unexpected verdicts')
-    require(all((destination/name).exists() for name in ['results.html', 'results.md']), 'Missing reports')
+    for format_name, extension in [('html', 'html'), ('markdown', 'md')]:
+        rendered = run(mcp + ['report', '--input', destination/'results.json', '--format',
+                              format_name, '--output', destination/f'results.{extension}'])
+        require(rendered.returncode == 0, rendered.stderr)
+        require((destination/f'results.{extension}').stat().st_size > 0, 'Empty report')
 check('mcpwn-red: real CLI local simulation, verdicts and report formats', mcp_simulation)
 
 
