@@ -276,9 +276,13 @@ def mcp_user():
     response = command('mcpwn-probe',[cli,'probe','--transport','stdio'], env=server_env)
     require(response.returncode == 0, response.stderr)
     response = command('mcpwn-assessment',[cli,'scan','--all','--transport','stdio','--confirm-write',
+                       '--policy',root/'mcpwn-red-source/examples/yaml-deny.json',
                        '--mcpwn-command',server,'--output-dir',args.out/'mcp-results'], timeout=90, env=server_env)
     assessment = json.loads((args.out/'mcp-results/results.json').read_text())
     require(assessment['assessment_kind']=='deployment', 'Deployment assessment mislabeled')
+    require(assessment['policy']['checks']['YAML-01']['action']=='deny','Declared policy not saved')
+    require(all(row['probe_status'] is not None for row in assessment['results']),
+            'Original probe observations missing')
     require(not assessment['summary'].get('ERROR', 0), 'Deployment assessment had an execution error')
     expected_exit = 2 if assessment['summary'].get('UNKNOWN', 0) else 1
     require(response.returncode == expected_exit,

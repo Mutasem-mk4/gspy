@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: Mutasem-mk4/mcpwn-red
-          ref: 'a0e4e9755f334e8619b90f259fe8d244f337efb4'
+          ref: 'bc29c197d9225e7b29180dcae573330443135ad4'
           path: mcpwn-red-source
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:

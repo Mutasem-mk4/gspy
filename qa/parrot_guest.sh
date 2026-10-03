@@ -28,7 +28,7 @@ dpkg-query -W -f='${Package} ${Version}\n' mcpwn-red python3-mcp > parrot-result
 printf 'tools:\n  - name: echo\n    command: echo\n' > mcpwn.yaml
 PATH="/opt/payload:$PATH" mcpwn-red probe --transport stdio > parrot-results/debian-probe.txt 2>&1
 set +e
-PATH="/opt/payload:$PATH" mcpwn-red scan --all --transport stdio --confirm-write --mcpwn-command /opt/payload/mcpwn --output-dir parrot-results/debian-assessment > parrot-results/debian-scan.txt 2>&1
+PATH="/opt/payload:$PATH" mcpwn-red scan --all --transport stdio --confirm-write --policy mcpwn-red-source/examples/yaml-deny.json --mcpwn-command /opt/payload/mcpwn --output-dir parrot-results/debian-assessment > parrot-results/debian-scan.txt 2>&1
 scan_exit=$?
 set -e
 printf '%s\n' "$scan_exit" > parrot-results/debian-scan-exit.txt

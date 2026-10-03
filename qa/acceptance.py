@@ -252,13 +252,24 @@ check('mcpwn-red: real CLI local simulation, verdicts and report formats', mcp_s
 
 
 def mcp_yaml():
-    destination = args.out/'yaml'
-    response = run(mcp + ['scan', '--module', 'yaml', '--confirm-write', '--mcpwn-command',
-                         args.bin/'mcpwn', '--output-dir', destination], timeout=90)
-    report = json.loads((destination/'results.json').read_text())
-    require(response.returncode == 1, f'Configuration probe exit {response.returncode}: {response.stderr}')
-    require(report['assessment_kind'] == 'deployment', 'Wrong assessment label')
-    require(report['summary']['FAIL'] == 7 and report['summary']['PASS'] == 1, report['summary'])
+    for action, code, expected in [('deny',1,{'FAIL':7,'PASS':1}),
+                                    ('allow',0,{'PASS':8}), (None,2,{'UNKNOWN':8})]:
+        destination = args.out/('yaml-'+str(action))
+        options=[]
+        if action:
+            policy=args.out/(action+'-policy.json')
+            policy.write_text(json.dumps({'name':'QA '+action,'checks':{
+                f'YAML-{i:02}':{'action':'deny' if i==5 else action} for i in range(1,9)
+            }}))
+            options=['--policy',policy]
+        response=run(mcp+['scan','--module','yaml','--confirm-write','--mcpwn-command',
+                          args.bin/'mcpwn','--output-dir',destination]+options,timeout=90)
+        report=json.loads((destination/'results.json').read_text())
+        require(response.returncode==code,f'{action} policy exit {response.returncode}: {response.stderr}')
+        require(report['assessment_kind']=='deployment','Wrong assessment label')
+        require(all(report['summary'][key]==count for key,count in expected.items()),report['summary'])
+        require(sum(report['summary'].values())==8 and report['summary']['ERROR']==0,report['summary'])
+        require(all(row['evidence_kind']=='registration' for row in report['results']),'Evidence mislabeled')
 check('mcpwn-red: real pinned MCPwn schema registration/rejection', mcp_yaml)
 
 

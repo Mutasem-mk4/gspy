@@ -9,7 +9,7 @@ on:
         default: '2875fa6979f95fbd939d55061ba76dac29d4d4ce'
         required: true
       mcpwn_red_ref:
-        default: 'a0e4e9755f334e8619b90f259fe8d244f337efb4'
+        default: 'bc29c197d9225e7b29180dcae573330443135ad4'
         required: true
 permissions:
   contents: read
