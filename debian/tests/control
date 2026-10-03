@@ -1,0 +1,6 @@
+Tests: cli-sanity
+Depends: gspy
+Restrictions: superficial, allow-stderr
+
+Tests: cli-errors
+Depends: @, python3

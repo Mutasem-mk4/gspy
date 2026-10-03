@@ -1,0 +1,77 @@
+gspy (0.2.3-2) unstable; urgency=medium
+
+  * Describe the captured program counter without claiming a full stack.
+  * Record vendored component licenses and verify installed CLI failure paths.
+  * Declare the versioned Go compiler and the module's required patch level.
+  * Use the submitted maintainer contact and declare the source repository.
+  * Correct the preceding release date to its verified publication time.
+  * Permit the documented CLI help stream in the superficial DEP-8 check.
+
+ -- Mutasem Kharma <kharma.mutasem@gmail.com>  Sat, 03 Oct 2026 23:52:00 +0000
+
+gspy (0.2.3-1) unstable; urgency=medium
+
+  * Refuse unsupported target architectures before reading DWARF offsets.
+  * Clarify the executable-hash readonly option and tracing refusal diagnostics.
+  * Pin reviewed source packages and verify explicit MCP policy journeys.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Sat, 03 Oct 2026 23:12:19 +0000
+
+gspy (0.2.2-1) unstable; urgency=medium
+
+  * Parse options after PID and reject unsupported goroutine layouts.
+  * Correct ARM64 syscall names and verify Go 1.23 through 1.27 layouts.
+  * Pin the BPF generator and support offline Debian source builds.
+  * Update Go and vulnerable dependencies; require real tracing in CI.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Fri, 02 Oct 2026 22:00:00 +0300
+
+gspy (0.2.1-1) unstable; urgency=medium
+
+  * Align package metadata with the supported Go 1.24 and arm64 targets.
+  * Add an installed-package DEP-8 CLI smoke test.
+  * Remove the obsolete duplicate Debian packaging directory.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Fri, 24 Jul 2026 14:00:00 +0300
+
+gspy (0.2.0-1) unstable; urgency=low
+
+  * Migrated to cilium/ebpf v0.21.0 API.
+  * Added Go 1.24 ABI support for goroutine ID extraction.
+  * Fixed go.mod module path to match GitHub repository URL.
+  * Fixed debian/copyright Source URL.
+  * Fixed debian/control: Section to misc, Architecture to amd64.
+  * Added linux-libc-dev to Build-Depends.
+  * Updated PKGBUILD for BlackArch compliance.
+  * Added CHANGELOG.md and CONTRIBUTING.md.
+  * Updated GitHub Actions to Node.js 24 compatible versions.
+  * Added test coverage reporting to CI.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Sun, 20 Apr 2026 00:00:00 +0000
+
+gspy (0.1.1-1) unstable; urgency=low
+
+  * Hardened for security distribution acceptance (Kali, BlackArch, Parrot).
+  * Fixed version string reporting in CI to use git describe.
+  * Hardened binary verification in CI (removed silenced tests).
+  * Restored gzipped man page to release artifacts.
+  * Complied with Debian build policy (removed internet access during build).
+  * Refactored TUI flash messages with timed auto-clear (3s).
+  * Implemented real-process BPF integration tests in CI.
+  * Verified all source files contain SPDX-License-Identifier tags.
+  * Relocated and modernized PKGBUILD for BlackArch compatibility.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Sat, 19 Apr 2026 10:55:00 +0000
+
+gspy (0.1.0-1) unstable; urgency=low
+
+  * Initial release.
+  * eBPF-based forensic goroutine-to-syscall inspector for live Go processes.
+  * Supports Go 1.17-1.23 on amd64.
+  * Requires Linux kernel >= 5.8 with BPF ring buffer support.
+  * TUI mode with 1Hz refresh, sort, filter, and expanded goroutine view.
+  * JSON output mode for pipeline processing.
+  * Forensic --readonly mode with SHA-256 binary verification.
+  * Man page and complete documentation included.
+
+ -- Mutasem Kharma <mutasem@gspy.dev>  Sun, 01 Dec 2024 00:00:00 +0000

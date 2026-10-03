@@ -1,0 +1,14 @@
+#!/usr/bin/python3
+"""Verify PID-first options and failed JSON invocations in the installed CLI."""
+
+import subprocess
+
+for arguments, diagnostic in [
+    (['not-a-pid', '--json'], 'invalid PID'),
+    (['123', '--filter', 'unsupported', '--json'], 'invalid filter'),
+]:
+    result = subprocess.run(['gspy', *arguments], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 1, (arguments, result)
+    assert not result.stdout, 'A failed JSON invocation must not emit non-JSON output'
+    assert diagnostic in result.stderr, result.stderr
+    print(arguments, 'refused with diagnostic and clean JSON stdout')

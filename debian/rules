@@ -1,0 +1,35 @@
+#!/usr/bin/make -f
+include /usr/share/dpkg/pkg-info.mk
+
+export CGO_ENABLED := 0
+export GOFLAGS := -mod=vendor
+export GOPROXY := off
+export GOSUMDB := off
+export GOTOOLCHAIN := local
+export PATH := /usr/lib/go-1.26/bin:$(PATH)
+export GOCACHE := $(CURDIR)/debian/.cache/go-build
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	test -f vendor/modules.txt
+
+override_dh_auto_build:
+	make generate
+	make build-only VERSION=$(DEB_VERSION_UPSTREAM)
+
+override_dh_auto_install:
+	install -D -m 0755 bin/gspy debian/gspy/usr/bin/gspy
+	install -D -m 0644 man/gspy.1 debian/gspy/usr/share/man/man1/gspy.1
+
+override_dh_auto_test:
+	go test -v -tags=testing ./...
+
+override_dh_auto_clean:
+	rm -rf bin debian/.cache
+	rm -f internal/bpf/gspy_*_bpfel.go internal/bpf/gspy_*_bpfel.o
+
+override_dh_dwz:
+
+override_dh_strip:
