@@ -1,8 +1,8 @@
 # Maintainer: Mutasem Kharma <mutasem@gspy.dev>
 # SPDX-License-Identifier: GPL-2.0-only
 pkgname=gspy
-pkgver=0.2.2
-pkgrel=2
+pkgver=0.2.3
+pkgrel=1
 _commit=c75814c265249426dfbbea4f4e461cf9a8bfe3d6
 pkgdesc="Forensic goroutine-to-syscall inspector for live Go processes using eBPF."
 arch=('x86_64' 'aarch64')

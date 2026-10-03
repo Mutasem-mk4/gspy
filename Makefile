@@ -17,7 +17,7 @@
 .PHONY: generate build install uninstall clean lint test man
 
 # Version info
-VERSION    ?= 0.2.2
+VERSION    ?= 0.2.3
 GO_VERSION  = $(shell go version 2>/dev/null | awk '{print $$3}')
 DESTDIR    ?=
 
