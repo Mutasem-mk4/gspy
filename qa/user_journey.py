@@ -147,7 +147,8 @@ def gspy_tui():
     try:
         screen = terminal.read(6)
         terminal.save('gspy-live')
-        require('GID' in screen and 'connect' in screen, 'No live goroutine/syscall table: '+screen)
+        require('GID' in screen and str(target.pid) in screen and 'syscall' in screen,
+                'No live goroutine/syscall table: '+screen)
         screen = terminal.key(b'?')
         terminal.save('gspy-help')
         require('filter' in screen.lower() and 'quit' in screen.lower(), 'Help overlay unavailable')
@@ -156,6 +157,8 @@ def gspy_tui():
         screen = terminal.key(b'f')
         terminal.save('gspy-net-filter')
         require('net' in screen.lower(), 'Network filter not visible')
+        terminal.key(b'f')
+        terminal.key(b'f')
         terminal.key(b's')
         terminal.key(b'\n')
         terminal.save('gspy-snapshot')
@@ -243,9 +246,12 @@ def mcp_user():
     require(response.returncode == 0, response.stderr)
     response = command('mcpwn-assessment',[cli,'scan','--all','--transport','stdio','--confirm-write',
                        '--mcpwn-command',server,'--output-dir',args.out/'mcp-results'], timeout=90, env=server_env)
-    require(response.returncode == 1, f'Expected findings exit code, got {response.returncode}: {response.stderr}')
     assessment = json.loads((args.out/'mcp-results/results.json').read_text())
     require(assessment['assessment_kind']=='deployment', 'Deployment assessment mislabeled')
+    require(not assessment['summary'].get('ERROR', 0), 'Deployment assessment had an execution error')
+    expected_exit = 2 if assessment['summary'].get('UNKNOWN', 0) else 1
+    require(response.returncode == expected_exit,
+            f'Findings/unknown exit contract mismatch: {response.returncode}: {assessment["summary"]}')
     response = command('mcpwn-html-report',[cli,'report','--input',args.out/'mcp-results/results.json',
                        '--format','html','--output',args.out/'mcp-report.html'])
     require(response.returncode == 0 and (args.out/'mcp-report.html').stat().st_size>0, response.stderr)
