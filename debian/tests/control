@@ -1,3 +1,6 @@
 Tests: cli-sanity
 Depends: gspy
 Restrictions: superficial
+
+Tests: cli-errors
+Depends: @, python3
