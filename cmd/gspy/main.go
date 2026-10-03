@@ -277,7 +277,7 @@ SUPPORTED GO VERSIONS:
 
 	// ── Step 13: Run in JSON or TUI mode ────────────────────────
 	if *flagJSON {
-		return runJSON(ctx, mgr, resolver, pid, *flagReadonly)
+		return runJSON(ctx, mgr, resolver, ui.Config{PID: pid, Readonly: *flagReadonly, Filter: filter})
 	}
 
 	return runTUI(ctx, cancel, mgr, resolver, pid, binaryPath, goVersion,
@@ -287,13 +287,22 @@ SUPPORTED GO VERSIONS:
 // runJSON runs the JSON output mode.
 // Emits one JSON object per line per syscall event. No TUI.
 func runJSON(ctx context.Context, mgr bpf.Manager,
-	resolver *proc.FrameResolver, pid int, readonly bool) int {
+	resolver *proc.FrameResolver, cfg ui.Config) int {
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	enc := json.NewEncoder(os.Stdout)
+	var outputErr error
 
 	exitCode := exitOK
 	err := mgr.PollEvents(ctx, func(evt bpf.SyscallEvent) {
-		if evt.EventType != bpf.EventSyscall {
+		if evt.EventType != bpf.EventSyscall || outputErr != nil {
+			return
+		}
+		name := bpf.SyscallName(evt.SyscallNr)
+		if (cfg.Filter == ui.FilterIO && !bpf.IOSyscalls[name]) ||
+			(cfg.Filter == ui.FilterNet && !bpf.NetSyscalls[name]) ||
+			(cfg.Filter == ui.FilterSched && !bpf.SchedSyscalls[name]) {
 			return
 		}
 
@@ -315,7 +324,7 @@ func runJSON(ctx context.Context, mgr bpf.Manager,
 			Readonly  bool    `json:"readonly,omitempty"`
 		}{
 			TS:        float64(evt.TS) / 1e9,
-			PID:       pid,
+			PID:       cfg.PID,
 			GID:       evt.GID,
 			TID:       evt.Tid,
 			State:     "syscall",
@@ -324,15 +333,19 @@ func runJSON(ctx context.Context, mgr bpf.Manager,
 			Frame:     frame,
 		}
 
-		if readonly {
+		if cfg.Readonly {
 			obj.Readonly = true
 		}
 
 		if err := enc.Encode(obj); err != nil {
-			// stdout closed (pipe broken), exit gracefully.
-			return
+			outputErr = err
+			cancel()
 		}
 	})
+	if outputErr != nil {
+		fmt.Fprintf(os.Stderr, "gspy: JSON output failed: %v\n", outputErr)
+		return exitFatal
+	}
 
 	if err != nil && ctx.Err() == nil {
 		fmt.Fprintf(os.Stderr, "gspy: polling error: %v\n", err)

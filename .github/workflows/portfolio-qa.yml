@@ -61,6 +61,12 @@ jobs:
           qa-venv/bin/pip freeze > python-dependencies.txt
       - name: Run witnessed native acceptance tests
         run: sudo env PATH="$PATH" python3 qa/acceptance.py --bin qa-bin --mcp-python "$PWD/qa-venv/bin/python" --out qa-results
+      - name: Allow artifact collection without relaxing evidence permissions
+        if: always()
+        run: |
+          if [ -d qa-results ]; then
+            sudo chown -R "$(id -u):$(id -g)" qa-results
+          fi
       - name: Upload evidence even if a test fails
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

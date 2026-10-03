@@ -117,6 +117,10 @@ func (m *realManager) LoadAndAttach(pid int, binaryPath string, gidOffset uint64
 
 	// Step 6: Attach uprobes to the target Go binary.
 	// Uprobes are scoped to the specific PID.
+	offsets, err := runtimeProbeOffsets(binaryPath)
+	if err != nil {
+		return fmt.Errorf("resolving Go runtime probes: %w", err)
+	}
 	ex, err := link.OpenExecutable(binaryPath)
 	if err != nil {
 		return fmt.Errorf("opening executable %s for uprobes: %w",
@@ -126,7 +130,7 @@ func (m *realManager) LoadAndAttach(pid int, binaryPath string, gidOffset uint64
 	// runtime.execute — fires on every goroutine context switch.
 	// This is the critical hook for TID→GID mapping.
 	upExecute, err := ex.Uprobe("runtime.execute",
-		objs.UprobeRuntimeExecute, &link.UprobeOptions{PID: pid})
+		objs.UprobeRuntimeExecute, &link.UprobeOptions{PID: pid, Address: offsets["runtime.execute"]})
 	if err != nil {
 		return fmt.Errorf("attaching uprobe runtime.execute: %w", err)
 	}
@@ -134,7 +138,7 @@ func (m *realManager) LoadAndAttach(pid int, binaryPath string, gidOffset uint64
 
 	// runtime.newproc1 — fires on goroutine creation.
 	upNewproc, err := ex.Uprobe("runtime.newproc1",
-		objs.UprobeRuntimeNewproc1, &link.UprobeOptions{PID: pid})
+		objs.UprobeRuntimeNewproc1, &link.UprobeOptions{PID: pid, Address: offsets["runtime.newproc1"]})
 	if err != nil {
 		return fmt.Errorf("attaching uprobe runtime.newproc1: %w", err)
 	}
@@ -142,7 +146,7 @@ func (m *realManager) LoadAndAttach(pid int, binaryPath string, gidOffset uint64
 
 	// runtime.goexit1 — fires on goroutine exit.
 	upGoexit, err := ex.Uprobe("runtime.goexit1",
-		objs.UprobeRuntimeGoexit1, &link.UprobeOptions{PID: pid})
+		objs.UprobeRuntimeGoexit1, &link.UprobeOptions{PID: pid, Address: offsets["runtime.goexit1"]})
 	if err != nil {
 		return fmt.Errorf("attaching uprobe runtime.goexit1: %w", err)
 	}

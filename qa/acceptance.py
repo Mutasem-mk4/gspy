@@ -5,8 +5,10 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 parser = argparse.ArgumentParser()
@@ -91,11 +93,12 @@ for tool in [gspy, proc]:
 
 
 def proc_invalid_targets():
-    for command in [[proc, '-p', '1', '-n', 'qa-no-such-process'],
-                    [proc, '--max-args', '-1', '--', '/bin/true'],
-                    [proc, '--max-path', '0', '--', '/bin/true']]:
+    for command, diagnostic in [([proc, '-p', '4294967295', '-n', 'qa-no-such-process'], 'cannot combine'),
+                                ([proc, '--max-args', '-1', '--', '/bin/true'], '--max-args must be positive'),
+                                ([proc, '--max-path', '0', '--', '/bin/true'], '--max-path must be positive')]:
         response = run(command, timeout=6)
         require(response.returncode != 0, f'Invalid target/options accepted: {command}')
+        require(diagnostic in response.stderr, response.stderr)
 check('procscope: reject ambiguous target and invalid capture bounds', proc_invalid_targets)
 
 fixture = args.out / 'target.py'
@@ -124,6 +127,7 @@ try:
         pids = {r['pid'] for r in records}
         require(parent in pids and child in pids, f'Missing parent/child evidence: {pids}')
         require(noise.pid not in pids, 'Unrelated process leaked into scoped evidence')
+        require(noise.poll() is None and (case/'unrelated.txt').exists(), 'Noise fixture did not actually run')
         require(any(r.get('file', {}).get('path', '').endswith('/child.txt') for r in records),
                 'Child file access not captured')
         require(any(r['type'] == 'net.connect' and r['pid'] == child for r in records),
@@ -185,8 +189,21 @@ for version in ['go1.23.0', 'go1.26.8', 'go1.27.1']:
 
         if version == 'go1.26.8':
             def gspy_nonroot():
-                response = run(['runuser', '-u', 'nobody', '--', gspy, str(target.pid), '--json'])
-                require(response.returncode != 0 and 'privilege' in response.stderr.lower(), response.stderr)
+                with tempfile.TemporaryDirectory(prefix='gspy-qa-', dir='/tmp') as staging:
+                    staging = Path(staging)
+                    staging.chmod(0o755)
+                    for src, name in [(gspy, 'gspy'), (binary, 'target')]:
+                        shutil.copyfile(src, staging/name)
+                        (staging/name).chmod(0o755)
+                    unprivileged = subprocess.Popen(['runuser', '-u', 'nobody', '--', str(staging/'target')],
+                                                    stdout=subprocess.PIPE, text=True, start_new_session=True)
+                    try:
+                        pid = json.loads(unprivileged.stdout.readline())['pid']
+                        response = run(['runuser', '-u', 'nobody', '--', staging/'gspy', str(pid), '--json'])
+                        require(response.returncode != 0 and 'privilege' in response.stderr.lower(), response.stderr)
+                    finally:
+                        os.killpg(unprivileged.pid, signal.SIGTERM)
+                        unprivileged.wait(timeout=5)
             check('gspy: useful non-root privilege diagnostic', gspy_nonroot)
 
             def gspy_diskfull():
@@ -195,6 +212,9 @@ for version in ['go1.23.0', 'go1.26.8', 'go1.27.1']:
                     try:
                         status = tracer.wait(timeout=3)
                         require(status != 0, 'Full output device returned success')
+                        stderr.flush()
+                        require('JSON output failed' in (source/'full.stderr').read_text(),
+                                (source/'full.stderr').read_text())
                     finally:
                         if tracer.poll() is None:
                             tracer.kill()
