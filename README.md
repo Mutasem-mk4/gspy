@@ -73,7 +73,7 @@ For a deeper dive into the engineering, read: [**Why Ptrace is Dead for Go Foren
 
 ## 🚀 Quick Start (Demo)
 
-See `gspy` in action without manual setup:
+Install the source-build prerequisites listed below before running the demo:
 
 ```bash
 # Clone and run the automated demo
@@ -82,7 +82,7 @@ cd gspy
 ./demo/demo.sh
 ```
 
-This will build `gspy`, launch a "suspicious" target process in the background, and attach to it immediately.
+This builds `gspy`, starts a synthetic target that attempts localhost connections and writes to a private temporary log, and opens the terminal UI. Press `q` to detach; the script stops its demo target and removes its temporary log. No internet connection is used by the target.
 
 ## 📋 Compatibility Matrix
 
