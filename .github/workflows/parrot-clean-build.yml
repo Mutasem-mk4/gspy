@@ -1,0 +1,43 @@
+name: Parrot clean source build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Obtain unchanged released sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p clean-input clean-results
+          gh release download v0.2.3 --repo Mutasem-mk4/gspy --pattern gspy-0.2.3-source.tar.gz --dir clean-input
+          gh release download v1.1.2 --repo Mutasem-mk4/procscope --pattern procscope-1.1.2-source.tar.gz --dir clean-input
+          gh release download v0.2.0 --repo Mutasem-mk4/mcpwn-red --pattern mcpwn-red_0.2.0.orig.tar.gz --dir clean-input
+          printf '%s  %s\n' 03dca87e67f2159679d52a3a7633bac747759e95fd3a1618aa61afae3d7fc149 clean-input/gspy-0.2.3-source.tar.gz | sha256sum -c -
+          printf '%s  %s\n' 8e1ed642e559acb9cdd11494292a05428d01eec81e6e816ecce7c9cb8799caf8 clean-input/procscope-1.1.2-source.tar.gz | sha256sum -c -
+          printf '%s  %s\n' b38221a50881c1c1d7f3a1fa84d55f23c5e23055da5fee566ab7ca756161206d clean-input/mcpwn-red_0.2.0.orig.tar.gz | sha256sum -c -
+          printf '%s\n' "${GITHUB_SHA}" > clean-results/harness-source.txt
+          sha256sum clean-input/* > clean-results/input-sha256.txt
+          cp qa/parrot_clean_build.sh clean-input/
+      - name: Build and test using the Parrot archive
+        run: |
+          docker pull parrotsec/core:latest
+          image=$(docker image inspect parrotsec/core:latest --format '{{index .RepoDigests 0}}')
+          printf '%s\n' "$image" > clean-results/container-digest.txt
+          docker run --rm --privileged \
+            --mount "type=bind,src=$PWD/clean-input,dst=/input,readonly" \
+            --mount "type=bind,src=$PWD/clean-results,dst=/results" \
+            "$image" bash /input/parrot_clean_build.sh
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: parrot-clean-build-${{ matrix.runner }}
+          path: clean-results/
