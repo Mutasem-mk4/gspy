@@ -36,6 +36,7 @@ test "$scan_exit" -eq 2
 python3 -c 'import json; r=json.load(open("parrot-results/debian-assessment/results.json")); assert r["assessment_kind"] == "deployment" and r["summary"]["ERROR"] == 0 and r["summary"]["UNKNOWN"] > 0'
 mcpwn-red report --input parrot-results/debian-assessment/results.json --format html --output parrot-results/debian-report.html
 apt-get remove -y mcpwn-red
+hash -r
 if command -v mcpwn-red; then exit 1; fi
 python3 -m venv mcp-env
 mcp-env/bin/pip install ./mcpwn-red-source pyte==0.8.2
