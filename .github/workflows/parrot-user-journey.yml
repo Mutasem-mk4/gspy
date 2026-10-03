@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: Mutasem-mk4/mcpwn-red
-          ref: 'b8657bf6b76c7dbf4de63f9dbf2fa927ff47cf48'
+          ref: 'a0e4e9755f334e8619b90f259fe8d244f337efb4'
           path: payload/mcpwn-red-source
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:
@@ -29,9 +29,10 @@ jobs:
           GSPY_PACKAGE_RUN: ${{ inputs.gspy_package_run }}
           GSPY_REF: ${{ inputs.gspy_ref }}
         run: |
-          mkdir -p payload/packages/gspy payload/packages/procscope payload/gspy-source
+          mkdir -p payload/packages/gspy payload/packages/procscope payload/packages/mcpwn-red payload/gspy-source
           gh run download "$GSPY_PACKAGE_RUN" --repo Mutasem-mk4/gspy --name gspy-debian --dir payload/packages/gspy
           gh run download 37092621968 --repo Mutasem-mk4/procscope --name procscope-deb --dir payload/packages/procscope
+          gh run download 37123918486 --repo Mutasem-mk4/mcpwn-red --name mcpwn-red-debian --dir payload/packages/mcpwn-red
           git fetch --depth=1 origin "$GSPY_REF"
           git archive FETCH_HEAD | tar -x -C payload/gspy-source
           cp -a qa payload/qa
