@@ -71,8 +71,8 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   fi
   cd "$parent"
   set +e
-  runuser -u package-builder -- sbuild --chroot="$name" --dist=echo --arch="$arch" \
-    --no-run-autopkgtest --no-source --no-sign "$parent/${tool}_${deb_version}.dsc" \
+  runuser -u package-builder -- sbuild --chroot-mode=schroot --chroot="$name" --dist=echo --arch="$arch" \
+    --no-run-autopkgtest --no-source "$parent/${tool}_${deb_version}.dsc" \
     > /results/"$tool"/sbuild.log 2>&1
   build_exit=$?
   set -e
