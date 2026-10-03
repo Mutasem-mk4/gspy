@@ -32,7 +32,8 @@ jobs:
           mkdir -p payload/packages/gspy payload/packages/procscope payload/gspy-source
           gh run download "$GSPY_PACKAGE_RUN" --repo Mutasem-mk4/gspy --name gspy-debian --dir payload/packages/gspy
           gh run download 37092621968 --repo Mutasem-mk4/procscope --name procscope-deb --dir payload/packages/procscope
-          git archive "$GSPY_REF" | tar -x -C payload/gspy-source
+          git fetch --depth=1 origin "$GSPY_REF"
+          git archive FETCH_HEAD | tar -x -C payload/gspy-source
           cp -a qa payload/qa
           cp -a "$(go env GOROOT)" payload/go
           git clone https://gitlab.com/parrotsec/project/mcpwn.git mcpwn-source
