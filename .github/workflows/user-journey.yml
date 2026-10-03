@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       gspy_ref:
-        default: '5b82ec99f8d529a0ee68e35ddf5e59b498edef4d'
+        default: '32a5732ad5b6febdfdd60cf1542cbcf9c99a4434'
         required: true
       gspy_package_run:
-        default: '37121002788'
+        default: '37123140742'
         required: true
 permissions:
   contents: read
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: Mutasem-mk4/mcpwn-red
-          ref: 'da8634b59f941c3dc25f1da3bb9f3448c1a603d5'
+          ref: 'b8657bf'
           path: mcpwn-red-source
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:

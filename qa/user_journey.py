@@ -234,6 +234,17 @@ time.sleep(.2)
     require(tree.strip(), 'Empty process tree')
     records = [json.loads(line) for line in command('read-evidence', ['sudo','-n','cat',args.out/'case/events.jsonl']).stdout.splitlines()]
     require(len({r['pid'] for r in records})>=2, 'Child process missing from evidence')
+    archive = args.out/'case-share.tar'
+    exported = command('export-private-evidence', ['sh','-c',
+        'umask 077; sudo -n tar -C "$1" -cf - . > "$2"',
+        'export-evidence', args.out/'case', archive])
+    require(exported.returncode == 0, exported.stderr)
+    require(archive.stat().st_uid == os.getuid() and archive.stat().st_mode & 0o777 == 0o600,
+            'Exported archive is not private and owned by the current user')
+    listed = command('list-private-export', ['tar','-tf',archive])
+    require(listed.returncode == 0 and 'events.jsonl' in listed.stdout, 'Archive omits collected evidence')
+    original = command('verify-original-evidence-mode', ['sudo','-n','stat','-c','%a %u',args.out/'case/events.jsonl'])
+    require(original.returncode == 0 and original.stdout.strip() == '600 0', 'Export changed original evidence privacy')
     response = command('procscope-invalid-command',['sudo','-n','procscope','--','qa-command-does-not-exist'])
     require(response.returncode != 0 and 'command not found' in response.stderr, response.stderr)
 check('procscope user: investigate safe command, read timeline/report/tree and recover from error', proc_human)
