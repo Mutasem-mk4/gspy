@@ -40,7 +40,7 @@ func runtimeProbeOffsets(path string) (offsets map[string]uint64, err error) {
 	for _, name := range []string{"runtime.execute", "runtime.newproc1", "runtime.goexit1"} {
 		fn := table.LookupFunc(name)
 		if fn == nil {
-			return nil, fmt.Errorf("Go PC table lacks %s", name)
+			return nil, fmt.Errorf("go PC table lacks %s", name)
 		}
 		for _, segment := range f.Progs {
 			if segment.Type == elf.PT_LOAD && segment.Flags&elf.PF_X != 0 &&
