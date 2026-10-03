@@ -3,13 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       gspy_ref:
-        default: '498991b785015338091f3f1ccab9fd5594fed0f1'
+        default: 'a442a920831e85f96b1b0b5a302afe7017895086'
         required: true
       procscope_ref:
-        default: '2875fa6979f95fbd939d55061ba76dac29d4d4ce'
+        default: '0d77c1f80c561af1db31d855d24f8a28d15ac10a'
         required: true
       mcpwn_red_ref:
-        default: 'bc29c197d9225e7b29180dcae573330443135ad4'
+        default: '7f75dcfb648453c130c0dbb0656254fd05211e24'
         required: true
 permissions:
   contents: read
