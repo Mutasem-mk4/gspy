@@ -19,7 +19,8 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: forensic goroutine-to-syscall inspector for Go processes
  gspy attaches to a running Go process by PID using eBPF uprobes and
  kernel tracepoints, mapping goroutine IDs to active kernel syscalls
- and user-space stack frames in real time.
+ and a captured user-space program counter in real time, resolving
+ function names where possible. This is not a complete stack trace.
  .
  The tracer uses kernel uprobes and tracepoints without restarting the
  target process. Instrumentation has overhead. Goroutine IDs are read
