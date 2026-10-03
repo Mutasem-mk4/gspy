@@ -5,7 +5,7 @@ gspy (0.2.3-2) unstable; urgency=medium
   * Declare the versioned Go compiler and the module's required patch level.
   * Use the submitted maintainer contact and declare the source repository.
 
- -- Mutasem Kharma <kharma.mutasem@gmail.com>  Sun, 04 Oct 2026 12:30:00 +0300
+ -- Mutasem Kharma <kharma.mutasem@gmail.com>  Sat, 03 Oct 2026 23:52:00 +0000
 
 gspy (0.2.3-1) unstable; urgency=medium
 
