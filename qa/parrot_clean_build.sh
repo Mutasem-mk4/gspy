@@ -94,7 +94,7 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
     # Debian's changes-file release database does not include Parrot echo.
     # Check source and binaries directly; keep the actual echo .changes.
     set +e
-    lintian "$parent/${tool}_${deb_version}.dsc" "$parent"/*.deb > /results/"$tool"/lintian.log 2>&1
+    runuser -u package-builder -- lintian --fail-on warning "$parent/${tool}_${deb_version}.dsc" "$parent"/*.deb > /results/"$tool"/lintian.log 2>&1
     lintian_exit=$?
     set -e
     cat /results/"$tool"/lintian.log
