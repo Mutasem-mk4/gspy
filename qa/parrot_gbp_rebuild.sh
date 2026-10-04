@@ -46,6 +46,12 @@ for tool in mcpwn-red procscope gspy; do
     if [ "$identical" != yes ]; then failed=1; fi
   else
     tail -n 100 /results/"$tool"/git-sbuildpkg.log
+    helper_workspace=$(sed -n 's/^\[Stage1\] Initialized workspace in \(\/tmp\/tmp\.[A-Za-z0-9]*\)$/\1/p' /results/"$tool"/git-sbuildpkg.log | head -n1)
+    if [ -n "$helper_workspace" ] && [ -d "$helper_workspace/build" ]; then
+      mkdir -p /results/"$tool"/rebuild/failure-logs
+      cp "$helper_workspace/build/"*.log /results/"$tool"/rebuild/failure-logs/
+      find /results/"$tool"/rebuild/failure-logs -type f -name '*.log' -exec tail -n 60 {} \;
+    fi
     failed=1
   fi
   printf '%s\t%s\t%s\n' "$tool" "$build_exit" "$identical" >> /results/rebuild-status.tsv

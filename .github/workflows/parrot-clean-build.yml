@@ -28,7 +28,7 @@ jobs:
         if: inputs.revised_packaging
         with:
           repository: Mutasem-mk4/procscope
-          ref: '03254213338051dc70c28158e6732331d35c43bd'
+          ref: '7c64c76f27f3c18ed6788a4f660d4f2d5b3aff57'
           path: packaging-source/procscope
       - name: Obtain unchanged released sources
         env:

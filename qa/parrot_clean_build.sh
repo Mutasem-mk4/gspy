@@ -43,12 +43,12 @@ printf 'file=%s.tar.gz\n' "$chroot" >> "$config"
 schroot -i -c "$name" > /results/schroot-info.txt
 useradd -m -s /bin/bash package-builder
 usermod -a -G sbuild package-builder
-printf '%s\n' '$chroot_mode = "schroot";' '$run_lintian = 1;' > /home/package-builder/.sbuildrc
+printf '%s\n' '$chroot_mode = "schroot";' '$run_lintian = 0;' > /home/package-builder/.sbuildrc
 session=$(runuser -u package-builder -- schroot --begin-session -c "$name")
 runuser -u package-builder -- schroot --end-session -c "$session"
 mkdir -p /build
 chown package-builder:package-builder /build
-printf 'tool\tsource\tbuild\tautopkgtest\n' > /results/status.tsv
+printf 'tool\tsource\tbuild\tautopkgtest\tlintian\n' > /results/status.tsv
 failed=0
 for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   tool=${spec%:*}
@@ -75,7 +75,7 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   set -e
   if [ "$source_exit" -ne 0 ]; then
     cat /results/"$tool"/source.log
-    printf '%s\t%s\tNA\tNA\n' "$tool" "$source_exit" >> /results/status.tsv
+    printf '%s\t%s\tNA\tNA\tNA\n' "$tool" "$source_exit" >> /results/status.tsv
     failed=1
     continue
   fi
@@ -87,7 +87,16 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   build_exit=$?
   set -e
   test_exit=NA
+  lintian_exit=NA
   if [ "$build_exit" -eq 0 ]; then
+    # Debian's changes-file release database does not include Parrot echo.
+    # Check source and binaries directly; keep the actual echo .changes.
+    set +e
+    lintian "$parent/${tool}_${deb_version}.dsc" "$parent"/*.deb > /results/"$tool"/lintian.log 2>&1
+    lintian_exit=$?
+    set -e
+    cat /results/"$tool"/lintian.log
+    if [ "$lintian_exit" -ne 0 ]; then failed=1; fi
     # A new file-chroot session extracts the pristine template separately.
     set +e
     autopkgtest "$parent/${tool}_${deb_version}.dsc" "$parent"/*.deb \
@@ -101,7 +110,7 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
     tail -n 120 /results/"$tool"/sbuild.log
     failed=1
   fi
-  printf '%s\t%s\t%s\t%s\n' "$tool" "$source_exit" "$build_exit" "$test_exit" >> /results/status.tsv
+  printf '%s\t%s\t%s\t%s\t%s\n' "$tool" "$source_exit" "$build_exit" "$test_exit" "$lintian_exit" >> /results/status.tsv
   find "$parent" -maxdepth 1 -type f \( -name '*.deb' -o -name '*.dsc' -o -name '*.changes' -o -name '*.buildinfo' -o -name '*.tar.*' -o -name '*.build' \) \
     -print0 | while IFS= read -r -d '' file; do
       filename=$(basename "$file" | tr ':' '-')

@@ -5,6 +5,7 @@ gspy (0.2.3-2) unstable; urgency=medium
   * Declare the versioned Go compiler and the module's required patch level.
   * Use the submitted maintainer contact and declare the source repository.
   * Correct the preceding release date to its verified publication time.
+  * Permit the documented CLI help stream in the superficial DEP-8 check.
 
  -- Mutasem Kharma <kharma.mutasem@gmail.com>  Sat, 03 Oct 2026 23:52:00 +0000
 
