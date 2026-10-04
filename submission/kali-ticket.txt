@@ -1,0 +1,54 @@
+PROJECT: Kali Linux
+CATEGORY: New Tool Requests
+SUMMARY: gspy — forensic goroutine-to-syscall inspector for live Go processes
+
+DESCRIPTION:
+
+Tool name: gspy
+Version: 0.2.0
+Tool URL: https://github.com/Mutasem-mk4/gspy
+License: GPL-2.0-only
+
+Description:
+gspy attaches to live Go processes using eBPF uprobes (runtime.execute) and kernel
+tracepoints (raw_syscalls/sys_enter, raw_syscalls/sys_exit) to map goroutine IDs to
+kernel syscalls in real time. It uses process_vm_readv(2) for memory access — zero
+ptrace, zero binary modification, zero process restart.
+
+Capabilities:
+- Goroutine ID → syscall → user-space stack frame live TUI (bubbletea)
+- Syscall latency measurement and frequency counting
+- --readonly forensic mode: zero writes to target process, SHA-256 binary verification
+- --json: newline-delimited JSON for SIEM/pipeline integration
+- --filter io|net|sched|all: targeted inspection
+
+Security use cases:
+- Live forensic inspection without disturbing chain of custody
+- Incident response: identify which goroutine makes unexpected network calls or file writes
+- Malware analysis: goroutine-level attribution in Go implants and C2 agents
+- Red/blue team: zero-footprint inspection that doesn't trigger file integrity monitoring
+
+Category: Forensics / Reverse Engineering
+Language: Go (85.5%) + C/eBPF (10.9%)
+Runtime requirements: Linux kernel >= 5.8, CAP_BPF + CAP_PERFMON (or root)
+Build requirements: Go >= 1.21, clang >= 14
+
+Packaging:
+Complete debian/ directory included in the upstream repository:
+- debian/control (with correct Build-Depends including linux-libc-dev)
+- debian/rules (DESTDIR-aware, calls make generate && make build-only)
+- debian/copyright (DEP-5 compliant, licensecheck passes)
+- debian/changelog (dch format, urgency=low)
+- debian/source/format (3.0 quilt)
+
+Build verification:
+  make generate  # requires clang >= 14, bpf2go
+  make build     # produces bin/gspy
+  make test      # passes without root (mock BPF layer)
+  dpkg-buildpackage -us -uc  # produces .deb
+
+CI: https://github.com/Mutasem-mk4/gspy/actions (all checks green)
+
+Uniqueness: No equivalent tool exists for Go-process-specific goroutine inspection.
+Existing tools (strace, bpftrace, Tracee) operate at process/system level and have
+no awareness of Go's goroutine scheduler or goroutine-to-syscall attribution.

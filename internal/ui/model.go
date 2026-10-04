@@ -1,0 +1,418 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2024 Mutasem Kharma <mutasem@gspy.dev>
+
+package ui
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/Mutasem-mk4/gspy/internal/bpf"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+// ---------------------------------------------------------------------------
+// Messages — all tea.Msg types used by the TUI
+// ---------------------------------------------------------------------------
+
+// SyscallEventMsg wraps a BPF syscall event for the TUI update loop.
+type SyscallEventMsg bpf.SyscallEvent
+
+// TickMsg triggers a 1Hz TUI refresh.
+type TickMsg time.Time
+
+// PulseMsg triggers a 500ms heartbeat pulse animation.
+type PulseMsg time.Time
+
+// JSONSnapshotMsg triggers a state dump to disk.
+type JSONSnapshotMsg struct{ Filename string }
+
+// FlashMsg shows a temporary message in the footer.
+type FlashMsg string
+
+// ProcessExitedMsg indicates the target process has exited.
+type ProcessExitedMsg struct{}
+
+// ErrorMsg carries a fatal error to the TUI.
+type ErrorMsg struct{ Err error }
+
+// clearFlashMsg clears the flash message after the timeout.
+type clearFlashMsg struct{}
+
+// ---------------------------------------------------------------------------
+// Model — bubbletea Model implementation
+// ---------------------------------------------------------------------------
+
+// Config holds runtime configuration passed to the TUI model.
+type Config struct {
+	ResolveFrame func(uint64) string
+	PID          int
+	Binary       string
+	GoVersion    string
+	Readonly     bool
+	SHA256       string
+	Filter       FilterMode
+	SortMode     SortMode
+}
+
+// Model is the bubbletea Model for gspy's TUI.
+// It manages the goroutine table, display state, and event processing.
+type Model struct {
+	// Configuration (immutable after init)
+	config Config
+
+	// Table state
+	table *Table
+
+	// Window dimensions
+	width  int
+	height int
+
+	// Timing
+	startTime time.Time
+	lastTick  time.Time
+	pulse     bool // toggles every 500ms
+
+	// UI Feedback
+	flash string // temporary message in footer
+
+	recentSyscalls map[uint64][]SyscallRecord
+	showHelp       bool
+	processExited  bool
+
+	// State
+	quitting bool
+	err      error
+}
+
+// NewModel creates a new TUI model with the given configuration.
+func NewModel(cfg Config) *Model {
+	t := NewTable()
+	t.Filter = cfg.Filter
+	if cfg.SortMode == SortByLatency {
+		t.Sort = SortByLatency
+	}
+
+	return &Model{
+		config:         cfg,
+		table:          t,
+		width:          80,
+		height:         24,
+		startTime:      time.Now(),
+		lastTick:       time.Now(),
+		pulse:          true,
+		recentSyscalls: make(map[uint64][]SyscallRecord),
+	}
+}
+
+// Init initializes the model and starts the tickers.
+func (m *Model) Init() tea.Cmd {
+	return tea.Batch(
+		tickCmd(),
+		pulseCmd(),
+		tea.ClearScreen,
+	)
+}
+
+// tickCmd returns a tea.Cmd that fires a TickMsg every second.
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return TickMsg(t)
+	})
+}
+
+// pulseCmd returns a tea.Cmd that fires every 500ms for animation.
+func pulseCmd() tea.Cmd {
+	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+		return PulseMsg(t)
+	})
+}
+
+// Update handles all incoming messages and updates the model state.
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+
+	case tea.KeyMsg:
+		return m.handleKey(msg)
+
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.table.Resize(msg.Width, msg.Height)
+		return m, nil
+
+	case SyscallEventMsg:
+		m.handleSyscallEvent(bpf.SyscallEvent(msg))
+		return m, nil
+
+	case TickMsg:
+		m.lastTick = time.Time(msg)
+		m.table.Refresh(m.lastTick)
+		return m, tickCmd()
+
+	case PulseMsg:
+		m.pulse = !m.pulse
+		return m, pulseCmd()
+
+	case FlashMsg:
+		m.flash = string(msg)
+		return m, tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
+			return clearFlashMsg{}
+		})
+
+	case clearFlashMsg:
+		m.flash = ""
+		return m, nil
+
+	case JSONSnapshotMsg:
+		// The actual file I/O is handled by the main loop listening for this msg
+		// if we were in a complex architecture, but here we can just do it or
+		// let the tea.Program handle it. We'll send it up to main.
+		return m, nil
+
+	case ProcessExitedMsg:
+		m.processExited = true
+		return m, nil
+
+	case ErrorMsg:
+		m.err = msg.Err
+		if !m.processExited {
+			m.quitting = true
+			return m, tea.Quit
+		}
+		return m, nil
+
+	default:
+		return m, nil
+	}
+}
+
+// handleKey processes key press events.
+func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// If help or expanded view is open, most keys return to table.
+	if m.showHelp || m.table.Expanded {
+		switch msg.String() {
+		case "esc", "q", "?", "backspace":
+			m.showHelp = false
+			m.table.Expanded = false
+			return m, nil
+		}
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "q", "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+
+	case "up", "k":
+		m.table.MoveUp()
+		return m, nil
+
+	case "down", "j":
+		m.table.MoveDown()
+		return m, nil
+
+	case "enter":
+		if m.table.SelectedRow() != nil {
+			m.table.Expanded = true
+		}
+		return m, nil
+
+	case "f":
+		m.table.CycleFilter()
+		m.table.Refresh(time.Now())
+		return m, nil
+
+	case "s":
+		m.table.ToggleSort()
+		m.table.Refresh(time.Now())
+		return m, nil
+
+	case "S":
+		m.table.ToggleSortDirection()
+		m.table.Refresh(time.Now())
+		return m, nil
+
+	case "ctrl+j":
+		filename := fmt.Sprintf("gspy_dump_%d_%d.json",
+			m.config.PID, time.Now().Unix())
+		err := m.table.SaveSnapshot(filename)
+		if err != nil {
+			m.flash = fmt.Sprintf("Error: %v", err)
+		} else {
+			m.flash = fmt.Sprintf("Snapshot saved: %s", filename)
+		}
+		return m, tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
+			return clearFlashMsg{}
+		})
+
+	case "?":
+		m.showHelp = true
+		return m, nil
+	}
+
+	return m, nil
+}
+
+// handleSyscallEvent processes a BPF syscall event.
+func (m *Model) handleSyscallEvent(evt bpf.SyscallEvent) {
+	if m == nil {
+		return
+	}
+	if m.recentSyscalls == nil {
+		m.recentSyscalls = make(map[uint64][]SyscallRecord)
+	}
+	if m.table == nil {
+		return
+	}
+	switch evt.EventType {
+	case bpf.EventSyscall:
+		syscallName := bpf.SyscallName(evt.SyscallNr)
+		latencyUS := int64(evt.LatencyNs / 1000)
+		frame := fmt.Sprintf("0x%x", evt.FramePC)
+		if m.config.ResolveFrame != nil {
+			frame = m.config.ResolveFrame(evt.FramePC)
+		}
+		m.table.UpdateRow(GoroutineRow{
+			GID: evt.GID, Syscall: syscallName, LatencyUS: latencyUS,
+			Frame: frame, FramePC: evt.FramePC, State: "syscall",
+		}, time.Now())
+
+		// Record for expanded view (last 20 syscalls per goroutine).
+		record := SyscallRecord{
+			Syscall:   syscallName,
+			LatencyUS: latencyUS,
+			Frame:     frame,
+			Timestamp: evt.TS,
+		}
+		history := m.recentSyscalls[evt.GID]
+		if len(history) >= 20 {
+			history = history[1:]
+		}
+		m.recentSyscalls[evt.GID] = append(history, record)
+
+	case bpf.EventGoroutineCreate:
+		m.table.SetState(evt.GID, "created")
+
+	case bpf.EventGoroutineExit:
+		m.table.MarkDead(evt.GID)
+	}
+}
+
+// View renders the current UI state.
+func (m *Model) View() string {
+	if m.quitting {
+		if m.err != nil {
+			return fmt.Sprintf("Error: %v\n", m.err)
+		}
+		return fmt.Sprintf("detached from process %d\n", m.config.PID)
+	}
+
+	// Overlay screens.
+	if m.showHelp {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+			RenderHelp(m.width, m.height))
+	}
+	if m.table.Expanded {
+		return m.renderExpanded()
+	}
+
+	return m.renderTable()
+}
+
+// renderTable renders the main goroutine table view.
+func (m *Model) renderTable() string {
+	var b strings.Builder
+
+	// Header bar
+	uptime := formatUptime(time.Since(m.startTime))
+	header := RenderHeader(m.width, m.config.PID, m.config.Binary,
+		m.config.GoVersion, m.table.GoroutineCount(), uptime,
+		m.table.Filter, m.config.Readonly, m.config.SHA256, m.pulse)
+	_, _ = b.WriteString(header)
+	_, _ = b.WriteString("\n")
+
+	// Column headers with sort indicator
+	sortCol, sortInd := m.table.SortColumnName()
+	colHeaders := RenderColumnHeaders(m.width, sortCol, sortInd)
+	_, _ = b.WriteString(colHeaders)
+	_, _ = b.WriteString("\n")
+
+	// Table rows
+	visibleRows := m.table.VisibleSlice()
+	rowsRendered := 0
+	maxRows := m.table.MaxVisibleRows()
+
+	if len(visibleRows) == 0 {
+		_, _ = b.WriteString(RenderEmptyState(m.width, maxRows))
+		rowsRendered = maxRows
+	}
+
+	for _, row := range visibleRows {
+		if rowsRendered >= maxRows {
+			break
+		}
+		// Check if this row is the selected row by pointer.
+		selected := (row == m.table.SelectedRow())
+
+		_, _ = b.WriteString(RenderRow(row, m.width, selected))
+		_, _ = b.WriteString("\n")
+		rowsRendered++
+	}
+
+	// Pad remaining rows
+	for rowsRendered < maxRows {
+		_, _ = b.WriteString(strings.Repeat(" ", m.width))
+		_, _ = b.WriteString("\n")
+		rowsRendered++
+	}
+
+	// Footer
+	footer := m.flash
+	if footer == "" {
+		footer = " q:quit  cr:expand  f:filter  s:sort  S:order  ^j:dump  ?:help"
+	}
+	_, _ = b.WriteString(RenderFooter(m.width, footer, m.processExited))
+
+	return b.String()
+}
+
+// renderExpanded renders the expanded goroutine detail view.
+func (m *Model) renderExpanded() string {
+	row := m.table.SelectedRow()
+	if row == nil {
+		m.table.Expanded = false
+		return m.renderTable()
+	}
+
+	history := m.recentSyscalls[row.GID]
+
+	// Stack frames would come from process_vm_readv — use placeholder.
+	var stackFrames []string
+	if row.Frame != "" && row.Frame != "<unknown>" {
+		stackFrames = []string{row.Frame}
+	}
+
+	return RenderExpanded(row, m.width, m.height, stackFrames, history)
+}
+
+// formatUptime formats a duration to a concise string like "2m30s".
+func formatUptime(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm%ds",
+			int(d.Minutes()), int(d.Seconds())%60)
+	}
+	return fmt.Sprintf("%dh%dm",
+		int(d.Hours()), int(d.Minutes())%60)
+}
+
+// GetTable returns the table for external access (testing).
+func (m *Model) GetTable() *Table {
+	return m.table
+}

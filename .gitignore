@@ -1,0 +1,44 @@
+# Build artifacts
+bin/
+/gspy
+
+# Generated BPF files
+internal/bpf/gspy_bpfel.go
+internal/bpf/gspy_bpfel.o
+internal/bpf/gspy_bpfeb.go
+internal/bpf/gspy_bpfeb.o
+
+# Go
+vendor/
+*.test
+*.out
+cover.out
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+scratch/
+tmp/
+awesome-go-readme.md
+awesome_go_*.md
+
+dist/
+obj-*/
+debian/.cache/
+debian/.debhelper/
+debian/gspy/
+debian/files
+debian/*.substvars
+debian/*.debhelper.log
+internal/bpf/gspy_*_bpfel.go
+internal/bpf/gspy_*_bpfel.o
+
+.golangci.bck.yml

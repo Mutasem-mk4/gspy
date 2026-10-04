@@ -1,0 +1,77 @@
+name: Portfolio black-box QA
+on:
+  workflow_dispatch:
+    inputs:
+      gspy_ref:
+        default: 'a442a920831e85f96b1b0b5a302afe7017895086'
+        required: true
+      procscope_ref:
+        default: '0d77c1f80c561af1db31d855d24f8a28d15ac10a'
+        required: true
+      mcpwn_red_ref:
+        default: '7f75dcfb648453c130c0dbb0656254fd05211e24'
+        required: true
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          repository: Mutasem-mk4/gspy
+          ref: ${{ inputs.gspy_ref }}
+          path: gspy-source
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          repository: Mutasem-mk4/procscope
+          ref: ${{ inputs.procscope_ref }}
+          path: procscope-source
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          repository: Mutasem-mk4/mcpwn-red
+          ref: ${{ inputs.mcpwn_red_ref }}
+          path: mcpwn-red-source
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+        with:
+          go-version: '1.26.8'
+          cache-dependency-path: gspy-source/go.sum
+      - name: Install BPF build dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang llvm libbpf-dev libelf-dev
+      - name: Build current tools from clean pinned sources
+        run: |
+          mkdir qa-bin
+          make -C gspy-source build
+          make -C procscope-source build
+          cp gspy-source/bin/gspy procscope-source/bin/procscope qa-bin/
+          git clone https://gitlab.com/parrotsec/project/mcpwn.git mcpwn-source
+          git -C mcpwn-source checkout a5d0bbb4e2ec2f0e27404543e67f825fb98bad4e
+          cd mcpwn-source
+          go build -o ../qa-bin/mcpwn ./cmd/mcpwn
+      - name: Install MCPwn red into a clean Python environment
+        run: |
+          python3 -m venv qa-venv
+          qa-venv/bin/pip install ./mcpwn-red-source
+          qa-venv/bin/pip freeze > python-dependencies.txt
+      - name: Run witnessed native acceptance tests
+        run: sudo env PATH="$PATH" python3 qa/acceptance.py --bin qa-bin --mcp-python "$PWD/qa-venv/bin/python" --out qa-results
+      - name: Allow artifact collection without relaxing evidence permissions
+        if: always()
+        run: |
+          if [ -d qa-results ]; then
+            sudo chown -R "$(id -u):$(id -g)" qa-results
+          fi
+      - name: Upload evidence even if a test fails
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: qa-${{ matrix.runner }}
+          path: |
+            qa-results/
+            python-dependencies.txt

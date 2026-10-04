@@ -1,0 +1,306 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2024 Mutasem Kharma <mutasem@gspy.dev>
+
+package attach
+
+import (
+	"crypto/sha256"
+	"debug/buildinfo"
+	"debug/dwarf"
+	"debug/elf"
+	"fmt"
+	"io"
+	"os"
+	"regexp"
+	"runtime"
+	"strconv"
+	"strings"
+)
+
+// ---------------------------------------------------------------------------
+// GID Offset Table
+// ---------------------------------------------------------------------------
+//
+// These offsets represent the byte offset of the `goid` field (type int64)
+// within the `runtime.g` struct. They are verified against the Go runtime
+// source code at: https://github.com/golang/go/blob/goX.YZ/src/runtime/runtime2.go
+//
+// The runtime.g struct layout is ABI-sensitive and may change between Go
+// versions. When the struct changes, the goid offset shifts.
+//
+// In Go 1.23, the `syscallbp` field (uintptr) was added before `goid`,
+// shifting the offset from 152 to 160 on 64-bit architectures.
+//
+// If DWARF debug info is available in the target binary, gspy always
+// prefers DWARF-derived offsets over this table.
+
+var gidOffsetTableAMD64 = map[string]uint64{
+	"1.17": 152,
+	"1.18": 152,
+	"1.19": 152,
+	"1.20": 152,
+	"1.21": 152,
+	"1.22": 152,
+	"1.23": 160,
+	"1.24": 160,
+	"1.25": 152,
+	"1.26": 152,
+	"1.27": 152,
+}
+
+var gidOffsetTableARM64 = map[string]uint64{
+	"1.17": 152,
+	"1.18": 152,
+	"1.19": 152,
+	"1.20": 152,
+	"1.21": 152,
+	"1.22": 152,
+	"1.23": 160,
+	"1.24": 160,
+	"1.25": 152,
+	"1.26": 152,
+	"1.27": 152,
+}
+
+// DetectGoVersion reads the target binary's ELF build information to extract
+// the Go version string (e.g., "go1.21.5").
+//
+// Uses debug/buildinfo.ReadFile which parses the .go.buildinfo ELF section.
+// This requires the binary to be a Go binary (built with Go 1.13+).
+func DetectGoVersion(binaryPath string) (string, error) {
+	info, err := buildinfo.ReadFile(binaryPath)
+	if err != nil {
+		return "", fmt.Errorf("reading build info from %s: %w",
+			binaryPath, err)
+	}
+
+	if info.GoVersion == "" {
+		return "", fmt.Errorf("go version not found in build info of %s",
+			binaryPath)
+	}
+
+	return info.GoVersion, nil
+}
+
+// goVersionRe matches strings like "go1.21", "go1.21.5", "go1.21rc1".
+var goVersionRe = regexp.MustCompile(`^go(\d+)\.(\d+)`)
+
+// ParseGoVersion extracts the major.minor version from a Go version string.
+// Input examples: "go1.21.5", "go1.22rc1", "go1.17"
+// Returns (major, minor, nil) or an error if parsing fails.
+func ParseGoVersion(version string) (int, int, error) {
+	matches := goVersionRe.FindStringSubmatch(version)
+	if len(matches) < 3 {
+		return 0, 0, fmt.Errorf("cannot parse Go version %q", version)
+	}
+
+	major, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing Go major version %q: %w",
+			matches[1], err)
+	}
+
+	minor, err := strconv.Atoi(matches[2])
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing Go minor version %q: %w",
+			matches[2], err)
+	}
+
+	return major, minor, nil
+}
+
+// GetGIDOffset prefers the target binary's DWARF layout, then a verified table.
+// A zero offset with a diagnostic means tracing must not proceed.
+func GetGIDOffset(binaryPath string, goVersion string) (uint64, string) {
+	arch := runtime.GOARCH
+	if binaryPath != "" {
+		binary, err := elf.Open(binaryPath)
+		if err != nil {
+			return 0, fmt.Sprintf("cannot inspect target ELF: %v", err)
+		}
+		defer binary.Close()
+		switch binary.Machine {
+		case elf.EM_X86_64:
+			arch = "amd64"
+		case elf.EM_AARCH64:
+			arch = "arm64"
+		default:
+			return 0, fmt.Sprintf("unsupported target architecture: %s", binary.Machine)
+		}
+	}
+	var table map[string]uint64
+	switch arch {
+	case "amd64":
+		table = gidOffsetTableAMD64
+	case "arm64":
+		table = gidOffsetTableARM64
+	default:
+		return 0, fmt.Sprintf("unsupported target architecture: %s", arch)
+	}
+	if offset, err := DWARFLookupGoidOffset(binaryPath); err == nil {
+		return offset, ""
+	}
+	major, minor, err := ParseGoVersion(goVersion)
+	if err != nil {
+		return 0, fmt.Sprintf("cannot determine goid offset: %v", err)
+	}
+	key := fmt.Sprintf("%d.%d", major, minor)
+	if offset, ok := table[key]; ok {
+		return offset, ""
+	}
+	return 0, fmt.Sprintf("unknown Go version %s: no verified goid offset; tracing refused. Use a target with DWARF information or a supported Go runtime; do not guess offsets", goVersion)
+}
+
+// DWARFLookupGoidOffset searches the DWARF debug information in the target
+// binary for the runtime.g type and returns the offset of the goid field.
+//
+// This is the most accurate method as it reads the actual compiled layout.
+// It requires the binary to contain DWARF info (not stripped).
+//
+// DWARF lookup procedure:
+//  1. Open the ELF binary and extract DWARF data
+//  2. Iterate through all DWARF entries looking for DW_TAG_structure_type
+//     with name "runtime.g"
+//  3. Within that struct, find DW_TAG_member with name "goid"
+//  4. Read DW_AT_data_member_loc to get the field offset
+func DWARFLookupGoidOffset(binaryPath string) (uint64, error) {
+	f, err := elf.Open(binaryPath)
+	if err != nil {
+		return 0, fmt.Errorf("opening ELF %s: %w", binaryPath, err)
+	}
+	defer f.Close()
+
+	d, err := f.DWARF()
+	if err != nil {
+		return 0, fmt.Errorf("reading DWARF from %s: %w", binaryPath, err)
+	}
+
+	r := d.Reader()
+
+	for {
+		entry, err := r.Next()
+		if err != nil {
+			return 0, fmt.Errorf("reading DWARF entries: %w", err)
+		}
+		if entry == nil {
+			break
+		}
+
+		// Look for DW_TAG_structure_type with name "runtime.g"
+		if entry.Tag != dwarf.TagStructType {
+			continue
+		}
+
+		nameField := entry.AttrField(dwarf.AttrName)
+		if nameField == nil {
+			continue
+		}
+
+		name, ok := nameField.Val.(string)
+		if !ok || name != "runtime.g" {
+			continue
+		}
+
+		// Found runtime.g — now search for the goid member.
+		if !entry.Children {
+			continue
+		}
+
+		for {
+			child, err := r.Next()
+			if err != nil {
+				return 0, fmt.Errorf("reading DWARF children: %w", err)
+			}
+			if child == nil || child.Tag == 0 {
+				break // end of children
+			}
+
+			if child.Tag != dwarf.TagMember {
+				continue
+			}
+
+			memberName := child.AttrField(dwarf.AttrName)
+			if memberName == nil {
+				continue
+			}
+
+			mname, ok := memberName.Val.(string)
+			if !ok || mname != "goid" {
+				continue
+			}
+
+			// Found goid — read DW_AT_data_member_loc.
+			locField := child.AttrField(dwarf.AttrDataMemberLoc)
+			if locField == nil {
+				return 0, fmt.Errorf(
+					"goid field found but DW_AT_data_member_loc missing")
+			}
+
+			switch v := locField.Val.(type) {
+			case int64:
+				return uint64(v), nil
+			case uint64:
+				return v, nil
+			case []byte:
+				// DWARF location expression — parse simple constant form.
+				// DW_OP_plus_uconst followed by ULEB128 offset.
+				if len(v) >= 2 && v[0] == 0x23 { // DW_OP_plus_uconst
+					offset, _ := decodeULEB128(v[1:])
+					return offset, nil
+				}
+				return 0, fmt.Errorf(
+					"unsupported DWARF location expression for goid")
+			default:
+				return 0, fmt.Errorf(
+					"unexpected DW_AT_data_member_loc type %T", v)
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("goid field not found in DWARF info of %s",
+		binaryPath)
+}
+
+// decodeULEB128 decodes an unsigned LEB128 value from a byte slice.
+func decodeULEB128(data []byte) (uint64, int) {
+	var result uint64
+	var shift uint
+	for i, b := range data {
+		result |= uint64(b&0x7f) << shift
+		if b&0x80 == 0 {
+			return result, i + 1
+		}
+		shift += 7
+		if shift >= 64 {
+			break
+		}
+	}
+	return result, len(data)
+}
+
+// ComputeSHA256 computes the SHA-256 hash of the file at the given path.
+// Used in --readonly mode to verify target binary integrity.
+func ComputeSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("opening %s for SHA-256: %w", path, err)
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", fmt.Errorf("computing SHA-256 of %s: %w", path, err)
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// IsGoVersion checks if a version string looks like a valid Go version.
+func IsGoVersion(s string) bool {
+	return strings.HasPrefix(s, "go1.") || strings.HasPrefix(s, "go2.")
+}
+
+// SupportedGoVersionRange returns the range of Go versions with verified offsets.
+func SupportedGoVersionRange() string {
+	return "1.17 – 1.27 (amd64 and arm64 verified)"
+}

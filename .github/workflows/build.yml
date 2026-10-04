@@ -1,0 +1,455 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# GitHub Actions configuration for gspy
+
+name: Build & Test
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.26.8"
+  CLANG_VERSION: "16"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GOFLAGS: "-mod=mod"
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # Job 1: Lint — ensure code quality and formatting
+  # ─────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install BPF toolchain
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            clang-${{ env.CLANG_VERSION }} \
+            llvm-${{ env.CLANG_VERSION }} \
+            libbpf-dev libelf-dev
+          sudo ln -sf /usr/bin/clang-${{ env.CLANG_VERSION }} /usr/bin/clang
+          sudo ln -sf /usr/bin/llvm-strip-${{ env.CLANG_VERSION }} /usr/bin/llvm-strip
+          # Install bpftool — try kernel-specific, then build from source
+          sudo apt-get install -y linux-tools-$(uname -r) 2>/dev/null || \
+            sudo apt-get install -y linux-tools-azure 2>/dev/null || true
+          if ! sudo bpftool version 2>/dev/null; then
+            sudo apt-get install -y git pkg-config
+            git clone --depth 1 --recurse-submodules \
+              https://github.com/libbpf/bpftool.git /tmp/bpftool
+            cd /tmp/bpftool/src && make -j$(nproc) && sudo make install prefix=/usr && cd -
+          fi
+
+      - name: Generate BPF bindings
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          make generate
+
+      - name: Check SPDX headers
+        run: |
+          MISSING=$(grep -rL "SPDX-License-Identifier" \
+            --include="*.go" --include="*.c" . \
+            | grep -v vendor/ \
+            | grep -vE 'internal/bpf/gspy_.*_bpf(el|eb)\.go' || true)
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: Missing SPDX headers:"; echo "$MISSING"; exit 1
+          fi
+          echo "✓ All source files have SPDX headers"
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
+        with:
+          version: v2.14.0
+          args: --timeout=5m
+
+  # ─────────────────────────────────────────────────────────
+  # Job 2: Test — run unit tests with mock BPF
+  # ─────────────────────────────────────────────────────────
+  test:
+    name: Test (mock BPF)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run tests with race detector
+        run: |
+          go test -v -race -coverprofile=coverage.out -tags=testing ./...
+          go tool cover -func=coverage.out | tail -1
+
+  # ─────────────────────────────────────────────────────────
+  # Job 2b: ABI Test — ensure Go versions don't break struct offsets
+  # ─────────────────────────────────────────────────────────
+  abi-test:
+    name: ABI Tests (${{ matrix.go-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['go1.23.0', 'go1.24.0', 'go1.25.0', 'go1.26.8', 'go1.27.1']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Test ABI logic
+        env:
+          GSPY_ABI_TOOLCHAIN: ${{ matrix.go-version }}
+        run: go test -v -tags=testing ./internal/attach/...
+
+  # ─────────────────────────────────────────────────────────
+  # Job 3: Build — generate BPF and compile binary
+  # ─────────────────────────────────────────────────────────
+  build-linux:
+    name: Build (Linux ${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    needs: [test]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install BPF toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-${{ env.CLANG_VERSION }} \
+            llvm-${{ env.CLANG_VERSION }} \
+            libelf-dev \
+            libbpf-dev
+          sudo ln -sf /usr/bin/clang-${{ env.CLANG_VERSION }} /usr/bin/clang
+          sudo ln -sf /usr/bin/llc-${{ env.CLANG_VERSION }} /usr/bin/llc
+          sudo ln -sf /usr/bin/llvm-strip-${{ env.CLANG_VERSION }} /usr/bin/llvm-strip
+          # Install bpftool
+          sudo apt-get install -y linux-tools-$(uname -r) 2>/dev/null || \
+            sudo apt-get install -y linux-tools-azure 2>/dev/null || true
+          if ! sudo bpftool version 2>/dev/null; then
+            sudo apt-get install -y git pkg-config
+            git clone --depth 1 --recurse-submodules \
+              https://github.com/libbpf/bpftool.git /tmp/bpftool
+            cd /tmp/bpftool/src && make -j$(nproc) && sudo make install prefix=/usr && cd -
+          fi
+
+      - name: Generate BPF and Build
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          # FIX BUG 1: Use git describe for proper version string
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          echo "Building with VERSION=${VERSION}"
+          
+          # 1. Generate (Must run on host arch to execute bpf2go)
+          make generate
+          
+          # 2. Build (Target specific arch)
+          make build VERSION=${VERSION} GOARCH=${{ matrix.arch }}
+
+      - name: Verify binary
+        run: |
+          ls -la bin/gspy
+          file bin/gspy
+          # Smoke test only on native runner arch
+          if [ "${{ matrix.arch }}" = "amd64" ]; then
+            bin/gspy --version
+            bin/gspy --help
+            ! bin/gspy notapid 2>/dev/null
+          fi
+
+      - name: Verify man page exists
+        run: |
+          test -s man/gspy.1 || { echo "ERROR: man/gspy.1 is missing or empty"; exit 1; }
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v7
+        with:
+          name: gspy-linux-${{ matrix.arch }}
+          path: bin/gspy
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────
+  # Job 4: Integration test — real BPF against real process
+  # ─────────────────────────────────────────────────────────
+  integration:
+    name: Integration test (real BPF ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    needs: [build-linux]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v8
+        with:
+          name: gspy-linux-${{ matrix.arch }}
+          path: bin/
+
+      - name: Build test target process
+        run: |
+          chmod +x bin/gspy
+          cat > /tmp/testproc.go << 'TESTEOF'
+          package main
+
+          import (
+            "net"
+            "time"
+            "runtime"
+            "fmt"
+            "strings"
+          )
+
+          func main() {
+            go func() {
+              stack := make([]byte, 64)
+              n := runtime.Stack(stack, false)
+              fmt.Printf("expected_gid=%s\n", strings.Fields(string(stack[:n]))[1])
+              for {
+                conn, _ := net.DialTimeout("tcp", "127.0.0.1:19999", time.Second)
+                if conn != nil { conn.Close() }
+                time.Sleep(100 * time.Millisecond)
+              }
+            }()
+            select {}
+          }
+          TESTEOF
+          go build -o /tmp/gspy-testproc /tmp/testproc.go
+
+      - name: Run integration test
+        run: |
+          set -euo pipefail
+
+          # Allow unprivileged BPF access for testing
+          sudo sysctl -w kernel.perf_event_paranoid=2 || true
+          sudo sysctl -w kernel.unprivileged_bpf_disabled=0 || true
+
+          # Start the test target process
+          /tmp/gspy-testproc > /tmp/gspy-target-gid.txt &
+          TESTPID=$!
+          echo "Test target PID: $TESTPID"
+          sleep 2
+
+          # Verify test process is running
+          kill -0 $TESTPID || { echo "ERROR: test process not running"; exit 1; }
+
+          # Run gspy in JSON mode for 5 seconds (--json avoids TUI/TTY issues)
+          before=$(sha256sum /tmp/gspy-testproc)
+          status=0
+          sudo timeout --signal=INT 8 ./bin/gspy $TESTPID --json --readonly > /tmp/gspy-out.json 2>/tmp/gspy-err.txt || status=$?
+          kill $TESTPID 2>/dev/null || true
+          cat /tmp/gspy-err.txt
+          test "$before" = "$(sha256sum /tmp/gspy-testproc)"
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            exit "$status"
+          fi
+
+          # Validate: output must exist and be non-empty
+          if [ ! -s /tmp/gspy-out.json ]; then
+            echo "FAIL: gspy produced no JSON output"
+            exit 1
+          fi
+
+          # Match a syscall to the exact goroutine ID reported by the target.
+          python3 -c "
+          import json, sys, re
+          events = []
+          with open('/tmp/gspy-out.json') as f:
+            for line in f:
+              line = line.strip()
+              if line:
+                try:
+                  events.append(json.loads(line))
+                except:
+                  pass
+          if not events:
+            print('FAIL: no parseable JSON events')
+            sys.exit(1)
+          expected = int(re.search(r'expected_gid=(\d+)', open('/tmp/gspy-target-gid.txt').read()).group(1))
+          valid = [e for e in events if e.get('gid') == expected and e.get('syscall') == 'connect']
+          if not all(e.get('readonly') is True for e in events):
+            sys.exit('FAIL: readonly option after PID was not applied')
+          if not valid:
+            print(f'FAIL: no connect event from expected goroutine {expected}. Got {len(events)} events total.')
+            sys.exit(1)
+          print(f'PASS: {len(valid)} events with valid GID out of {len(events)} total')
+          "
+
+  vulnerability-check:
+    needs: build-linux
+    name: Vulnerability check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+      - uses: actions/download-artifact@v8
+        with:
+          name: gspy-linux-amd64
+          path: bin/
+      - run: govulncheck -mode=binary bin/gspy
+
+  debian-package:
+    name: Offline Debian build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y debhelper clang llvm libbpf-dev libelf-dev linux-libc-dev lintian
+      - name: Prepare offline source
+        run: make source-dist
+      - name: Build without network access
+        run: |
+          chmod +x debian/rules
+          sudo env PATH="$PATH" unshare --net dpkg-buildpackage -us -uc -b -d
+      - name: Validate Debian package
+        run: |
+          lintian --fail-on error ../gspy_*.deb
+          sudo dpkg -i ../gspy_*.deb
+          sh debian/tests/cli-sanity
+          mkdir -p dist
+          cp ../gspy_*.deb dist/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gspy-debian
+          path: |
+            dist/*.deb
+            dist/*-source.tar.gz
+
+  arch-package:
+    name: Arch source package
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Install build tools
+        run: pacman -Syu --noconfirm git go nodejs clang llvm libbpf
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build the pinned source package
+        run: |
+          cmp packaging/PKGBUILD packaging/blackarch/PKGBUILD
+          useradd -m builduser
+          chown -R builduser:builduser packaging
+          su builduser -c "cd packaging && makepkg -sf --noconfirm"
+      - name: Upload Arch package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: gspy-arch-package
+          path: packaging/*.pkg.tar.zst
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [build-linux, lint, integration]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+
+      - name: Install nFPM
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Download amd64 build
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v8
+        with:
+          name: gspy-linux-amd64
+          path: bin-amd64/
+
+      - name: Download arm64 build
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v8
+        with:
+          name: gspy-linux-arm64
+          path: bin-arm64/
+
+      - name: Generate Multi-Arch Packages
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          gzip -k man/gspy.1
+          mkdir -p release-dist
+
+          for arch in amd64 arm64; do
+            echo "--- Packaging for $arch ---"
+            
+            # Setup working directory structure for nfpm mapping
+            mkdir -p bin
+            cp bin-$arch/gspy bin/gspy
+            chmod +x bin/gspy
+
+            # 1. Generate compressed tarball
+            tar czf release-dist/gspy-v${VERSION}-linux-${arch}.tar.gz bin/gspy man/gspy.1.gz LICENSE README.md
+
+            # 2. Generate .deb and .rpm using nfpm
+            # ARCH and VERSION are picked up as environment variables in nfpm.yaml
+            VERSION=${VERSION} ARCH=${arch} nfpm pkg --packager deb --target release-dist/
+            VERSION=${VERSION} ARCH=${arch} nfpm pkg --packager rpm --target release-dist/
+            
+            # Cleanup for next arch iteration
+            rm -rf bin
+          done
+
+          # 3. Generate Checksums for all assets
+          cd release-dist
+          sha256sum * > SHA256SUMS.txt
+        shell: bash
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@01570a1f39cb168c169c802c3bceb9e93fb10974 # v3
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            release-dist/*

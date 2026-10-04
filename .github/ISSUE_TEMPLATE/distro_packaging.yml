@@ -1,0 +1,33 @@
+name: Distribution Packaging Request
+description: Request official packaging or repository inclusion for a Linux distribution.
+title: "[Distro]: Request for Packaging in <Distribution Name>"
+labels: ["packaging", "distro"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping bring `gspy` to more users! Please provide the details of the distribution you are targeting or representing.
+  - type: input
+    id: distro_name
+    attributes:
+      label: Linux Distribution
+      description: What distribution is this request for? (e.g., Kali, Parrot OS, BlackArch, Arch Linux, Debian)
+      placeholder: "e.g., Kali Linux"
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Packaging Requirements
+      description: Are there any specific build requirements, policies, or flags we need to adhere to (e.g., Debian Policy, Arch Guidelines)?
+      placeholder: "- Must support offline builds without internet access.\n- Must not strip binaries automatically."
+    validations:
+      required: true
+  - type: textarea
+    id: links
+    attributes:
+      label: Relevant Links
+      description: Links to the official package request, Bugzilla, GitLab issue, or documentation for submission.
+      placeholder: "https://bugs.kali.org/..."
+    validations:
+      required: false

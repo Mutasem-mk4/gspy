@@ -1,0 +1,45 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+linters:
+  disable:
+    - gosec
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -SA1019
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - unused
+        text: parameter .* is unused
+    paths:
+      - .*_bpfel.*\.go$
+      - .*_bpfeb.*\.go$
+      - vendor
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - .*_bpfel.*\.go$
+      - .*_bpfeb.*\.go$
+      - vendor
+      - third_party$
+      - builtin$
+      - examples$
