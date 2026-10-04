@@ -4,6 +4,7 @@ gspy (0.2.3-2) unstable; urgency=medium
   * Record vendored component licenses and verify installed CLI failure paths.
   * Declare the versioned Go compiler and the module's required patch level.
   * Use the submitted maintainer contact and declare the source repository.
+  * Correct the preceding release date to its verified publication time.
 
  -- Mutasem Kharma <kharma.mutasem@gmail.com>  Sat, 03 Oct 2026 23:52:00 +0000
 
@@ -13,7 +14,7 @@ gspy (0.2.3-1) unstable; urgency=medium
   * Clarify the executable-hash readonly option and tracing refusal diagnostics.
   * Pin reviewed source packages and verify explicit MCP policy journeys.
 
- -- Mutasem Kharma <mutasem@gspy.dev>  Sun, 04 Oct 2026 12:00:00 +0300
+ -- Mutasem Kharma <mutasem@gspy.dev>  Sat, 03 Oct 2026 23:12:19 +0000
 
 gspy (0.2.2-1) unstable; urgency=medium
 
