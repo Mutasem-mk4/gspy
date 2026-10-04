@@ -53,16 +53,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CLEAN_PACKAGE_RUN: ${{ inputs.clean_package_run }}
-          RUNNER_NAME: ${{ matrix.runner }}
+          QA_MATRIX_RUNNER: ${{ matrix.runner }}
         run: |
           mkdir qa-bin
           if [ -n "$CLEAN_PACKAGE_RUN" ]; then
             artifact_runner=ubuntu-24.04
-            if [ "$RUNNER_NAME" = ubuntu-24.04-arm ]; then artifact_runner=ubuntu-24.04-arm; fi
+            if [ "$QA_MATRIX_RUNNER" = ubuntu-24.04-arm ]; then artifact_runner=ubuntu-24.04-arm; fi
             gh run download "$CLEAN_PACKAGE_RUN" --repo Mutasem-mk4/gspy --name "parrot-clean-build-$artifact_runner" --dir clean-build
             for tool in gspy procscope; do
               package=$(find "clean-build/$tool" -maxdepth 1 -name "${tool}_*.deb" -print -quit)
               test -n "$package"
+              test "$(dpkg-deb -f "$package" Architecture)" = "$(dpkg --print-architecture)"
               sha256sum "$package" >> source-built-package-sha256.txt
               dpkg-deb -x "$package" package-root
               cp "package-root/usr/bin/$tool" qa-bin/
