@@ -44,6 +44,8 @@ if [ -d old-packages ]; then
   test "$(dpkg-query -W -f='${Version}' procscope)" = 1.1.2-2
   test "$(dpkg-query -W -f='${Version}' mcpwn-red)" = 0.2.0-2
   sha256sum -c parrot-results/upgrade-evidence-sha256.txt
+  ./procscope-debian/debian/tests/runtime-smoke > parrot-results/procscope-dep8-runtime.log 2>&1
+  grep -Fx 'PASS: runtime-smoke' parrot-results/procscope-dep8-runtime.log
 fi
 dpkg-query -W -f='${Package} ${Version}\n' mcpwn-red python3-mcp > parrot-results/debian-mcp-versions.txt
 printf 'tools:\n  - name: echo\n    command: echo\n' > mcpwn.yaml

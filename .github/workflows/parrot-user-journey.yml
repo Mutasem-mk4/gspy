@@ -47,6 +47,8 @@ jobs:
             done
             cp clean-build/status.tsv payload/clean-build-status.tsv
             cp clean-build/container-digest.txt payload/clean-build-container-digest.txt
+            mkdir -p payload/procscope-debian
+            tar -xJf clean-build/procscope/procscope_*.debian.tar.xz -C payload/procscope-debian
             printf '%s\n' "$CLEAN_PACKAGE_RUN" > payload/clean-build-run.txt
           fi
           sha256sum payload/packages/*/*.deb > payload/package-sha256.txt

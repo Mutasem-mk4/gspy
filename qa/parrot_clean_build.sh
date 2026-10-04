@@ -64,7 +64,9 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
   if [ -f "/input/$tool-debian.tar" ]; then
     tar -xf "/input/$tool-debian.tar" -C "$source"
   fi
-  tar --exclude=./debian -czf "$parent/${tool}_${version}.orig.tar.gz" -C "$source" .
+  source_epoch=$(cd "$source" && date --date="$(dpkg-parsechangelog -S Date)" +%s)
+  tar --sort=name --mtime="@$source_epoch" --clamp-mtime --owner=0 --group=0 --numeric-owner \
+    --exclude=./debian -czf "$parent/${tool}_${version}.orig.tar.gz" -C "$source" .
   chmod +x "$source/debian/rules"
   chown -R package-builder:package-builder "$parent"
   cd "$source"
@@ -105,7 +107,17 @@ for spec in 'mcpwn-red:0.2.0' 'procscope:1.1.2' 'gspy:0.2.3'; do
     test_exit=$?
     set -e
     if [ "$test_exit" -ne 0 ]; then tail -n 120 /results/"$tool"/autopkgtest.log; fi
-    if [ "$test_exit" -ne 0 ] && [ "$test_exit" -ne 8 ]; then failed=1; fi
+    if [ "$test_exit" -eq 2 ] && [ "$tool" = procscope ]; then
+      # This backend cannot execute isolation-machine tests. Both installed
+      # non-kernel tests must pass; runtime qualification remains a VM gate.
+      grep -Eq '^cli-sanity[[:space:]]+PASS$' /results/"$tool"/autopkgtest/summary || failed=1
+      grep -Eq '^install-layout[[:space:]]+PASS$' /results/"$tool"/autopkgtest/summary || failed=1
+      grep -Eq '^runtime-smoke[[:space:]]+SKIP.*isolation-machine' /results/"$tool"/autopkgtest/summary || failed=1
+    elif [ "$test_exit" -eq 8 ] && [ ! -f "/input/$tool-debian.tar" ]; then
+      : # Baseline has only superficial tests; this is recorded as 8, not PASS.
+    elif [ "$test_exit" -ne 0 ]; then
+      failed=1
+    fi
   else
     tail -n 120 /results/"$tool"/sbuild.log
     failed=1

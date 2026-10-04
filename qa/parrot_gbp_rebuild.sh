@@ -1,16 +1,36 @@
 #!/bin/bash
-# Second clean build through the pinned, unmodified Parrot git-sbuildpkg helper.
+# Second clean build through the pinned helper plus one documented CLI fix.
 set -euo pipefail
 arch=$(dpkg --print-architecture)
 apt-get install -y pristine-tar git
 mkdir -p /build/git-sbuildpkg
 tar -xf /input/git-sbuildpkg.tar -C /build/git-sbuildpkg
+python3 - <<'PY'
+from pathlib import Path
+import difflib
+
+path = Path('/build/git-sbuildpkg/stage3/build_package.sh')
+original = path.read_text()
+old = '    -us -uc > "$BUILD_LOG" 2>&1; then'
+assert original.count(old) == 1, 'Unexpected official helper; compatibility patch refused'
+corrected = original.replace(old, '    > "$BUILD_LOG" 2>&1; then')
+path.write_text(corrected)
+Path('/results/git-sbuildpkg-compatibility.patch').write_text(''.join(
+    difflib.unified_diff(original.splitlines(True), corrected.splitlines(True),
+                         fromfile='a/stage3/build_package.sh', tofile='b/stage3/build_package.sh')))
+Path('/results/git-sbuildpkg-compatibility.txt').write_text(
+    'Pinned helper 7164e1646556027f00e0ac10ceaff839e77ba795 needs one CLI fix: '
+    'do not forward dpkg-buildpackage -us -uc flags to sbuild. '
+    'The archive sbuild is unsigned by default. The unmodified failure is '
+    'recorded in run 37205048556. This run qualifies the patched helper, '
+    'not the unmodified upstream revision.\n')
+PY
 chown -R package-builder:package-builder /build/git-sbuildpkg
 runuser -u package-builder -- git config --global user.name 'Mutasem Kharma'
 runuser -u package-builder -- git config --global user.email 'kharma.mutasem@gmail.com'
 printf '[DEFAULT]\ndebian-branch = debian/latest\nupstream-branch = upstream\npristine-tar = True\n' > /home/package-builder/.gbp.conf
 chown package-builder:package-builder /home/package-builder/.gbp.conf
-printf 'tool\tgit_sbuildpkg\treproducible_debs\n' > /results/rebuild-status.tsv
+printf 'tool\tgit_sbuildpkg_with_cli_fix\treproducible_debs\n' > /results/rebuild-status.tsv
 failed=0
 for tool in mcpwn-red procscope gspy; do
   if ! awk -F '\t' -v tool="$tool" '$1 == tool && $3 == 0 { found=1 } END { exit !found }' /results/status.tsv; then
