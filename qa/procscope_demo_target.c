@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /* Controlled local witness for a genuine recorded procscope CLI session. */
 #include <arpa/inet.h>
 #include <fcntl.h>
