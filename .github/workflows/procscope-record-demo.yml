@@ -1,0 +1,79 @@
+name: Record real procscope CLI demo
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  record:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Install screen recording tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg xvfb xterm fonts-dejavu-core gcc
+      - name: Install the exact qualified package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 37206499149 --repo Mutasem-mk4/gspy --name parrot-clean-build-ubuntu-24.04 --dir clean-build
+          printf '%s  %s\n' b556cc49fe7e036dda989680d4382c4f1703e73dc800bf828e4362c5360a438e clean-build/procscope/procscope_1.1.2-2_amd64.deb | sha256sum -c -
+          sudo dpkg -i clean-build/procscope/procscope_1.1.2-2_amd64.deb
+          test -r /sys/kernel/btf/vmlinux
+          mkdir -p recording
+          gcc -Wall -Wextra -Werror -O0 qa/procscope_demo_target.c -o recording/demo-target
+          cp qa/procscope_demo_target.c recording/
+          sha256sum clean-build/procscope/procscope_1.1.2-2_amd64.deb > recording/package-sha256.txt
+          uname -a > recording/kernel.txt
+          cat /etc/os-release > recording/os-release.txt
+      - name: Capture actual terminal use as a video
+        run: |
+          set -euo pipefail
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1280x720x24 -nolisten tcp > recording/xvfb.log 2>&1 &
+          display_pid=$!
+          recorder_pid=''
+          cleanup() {
+            if [ -n "$recorder_pid" ] && kill -0 "$recorder_pid" 2>/dev/null; then
+              kill -INT "$recorder_pid"
+              wait "$recorder_pid" || true
+            fi
+            kill "$display_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 40); do
+            if [ -S /tmp/.X11-unix/X99 ]; then break; fi
+            sleep .1
+          done
+          test -S /tmp/.X11-unix/X99
+          ffmpeg -y -hide_banner -f x11grab -draw_mouse 0 -framerate 30 -video_size 1280x720 -i :99.0 \
+            -an -c:v libx264 -preset veryfast -crf 18 -pix_fmt yuv420p -movflags +faststart \
+            recording/procscope-live-screen.mp4 > recording/ffmpeg.log 2>&1 &
+          recorder_pid=$!
+          sleep 1
+          (
+            cd recording
+            xterm -fa 'DejaVu Sans Mono' -fs 14 -geometry 108x31+0+0 -b 16 \
+              -bg '#0b1118' -fg '#edf3f8' -title 'procscope: live CLI demonstration' \
+              -e python3 ../qa/procscope_record_session.py
+          )
+          kill -INT "$recorder_pid"
+          wait "$recorder_pid"
+          recorder_pid=''
+          test -s recording/recording-result.json
+          ffprobe -v quiet -show_format -show_streams -of json recording/procscope-live-screen.mp4 > recording/video-info.json
+          ffmpeg -v error -i recording/procscope-live-screen.mp4 -f null -
+          sudo tar -cf recording/collected-evidence.tar -C recording case report.md
+          sudo chown "$(id -u):$(id -g)" recording/collected-evidence.tar
+          rm recording/demo-target
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: procscope-live-screen-recording
+          path: |
+            recording/*.mp4
+            recording/*.json
+            recording/*.txt
+            recording/*.log
+            recording/*.c
+            recording/*.tar
