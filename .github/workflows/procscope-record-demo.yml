@@ -53,12 +53,18 @@ jobs:
           sleep 1
           (
             cd recording
-            xterm -fa 'DejaVu Sans Mono' -fs 14 -geometry 108x31+0+0 -b 16 \
+            xterm -fa 'DejaVu Sans Mono' -fs 14 -geometry 100x28+0+0 -b 16 \
               -bg '#0b1118' -fg '#edf3f8' -title 'procscope: live CLI demonstration' \
               -e python3 ../qa/procscope_record_session.py
           )
           kill -INT "$recorder_pid"
-          wait "$recorder_pid"
+          recorder_status=0
+          wait "$recorder_pid" || recorder_status=$?
+          if [ "$recorder_status" -eq 255 ]; then
+            grep -F 'Exiting normally, received signal 2.' recording/ffmpeg.log
+          elif [ "$recorder_status" -ne 0 ]; then
+            exit "$recorder_status"
+          fi
           recorder_pid=''
           test -s recording/recording-result.json
           ffprobe -v quiet -show_format -show_streams -of json recording/procscope-live-screen.mp4 > recording/video-info.json

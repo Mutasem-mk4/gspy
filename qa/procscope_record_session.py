@@ -42,7 +42,7 @@ run(['sudo', '-n', 'procscope', '--no-color', '--out', 'case', '--summary', 'rep
 run(['sudo', '-n', 'cat', 'case/process-tree.txt'], pause=5)
 run(['sudo', '-n', 'ls', '-1', 'case'], pause=4)
 run(['sudo', '-n', 'sed', '-n', '1,30p', 'report.md'], pause=6)
-run(['printf', 'Inspect the saved evidence. Capture is best-effort, with overhead.\n'], pause=4)
+run(['printf', 'Inspect the saved evidence. Capture is best-effort, with overhead.\\n'], pause=4)
 
 # Validate the actual recorded case after the on-screen demonstration, without
 # editing or replacing any displayed observations.

@@ -21,6 +21,7 @@ int main(void) {
     pid_t child = fork();
     checked(child, "fork");
     if (child == 0) {
+        checked(setenv("LC_ALL", "C", 1), "setenv");
         execl("/bin/echo", "echo", "Child process completed", (char *)NULL);
         perror("exec");
         _exit(1);
